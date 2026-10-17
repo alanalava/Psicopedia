@@ -1,0 +1,339 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Flashcards - Psicopedia</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800;900&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+font-family: 'Inter', sans-serif;
+background-color: #FDF9F1;
+background-image: radial-gradient(at 0% 0%, #F5EBE0 0px, transparent 50%), radial-gradient(at 100% 100%, #EADDCB 0px, transparent 50%);
+color: #1C1917;
+display: flex;
+min-height: 100vh;
+overflow: hidden;
+position: relative;
+}
+
+.dot-matrix {
+position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+background-image: radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px);
+background-size: 30px 30px;
+z-index: -1;
+pointer-events: none;
+}
+
+/* ========================================= */
+/* SIDEBAR (BARRA LATERAL) */
+/* ========================================= */
+.sidebar {
+width: 280px;
+background: #FFFFFF;
+border-right: 1px solid #E7E5E4;
+height: 100vh;
+display: flex;
+flex-direction: column;
+padding: 30px 20px;
+z-index: 100;
+box-shadow: 4px 0 15px rgba(0,0,0,0.02);
+transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-header { margin-bottom: 30px; text-align: center; }
+.sidebar-header h2 { font-size: 1.5em; font-weight: 900; color: #7C2D12; letter-spacing: 1px;}
+.sidebar-header p { color: #A8A29E; font-size: 0.8em; font-weight: 700; text-transform: uppercase; margin-top: 5px; letter-spacing: 1.5px;}
+
+.btn-volver-side {
+display: flex; align-items: center; justify-content: center; width: 100%;
+background: #FAFAF9; color: #44403C; border: 1px solid #E7E5E4; padding: 12px; border-radius: 12px; text-decoration: none; font-weight: 600; font-size: 0.9em; transition: 0.3s; margin-bottom: 30px;
+}
+.btn-volver-side:hover { background: #FFFFFF; box-shadow: 0 4px 10px rgba(0,0,0,0.05); border-color: #D6D3D1; transform: translateY(-2px);}
+
+.progreso-container { flex-grow: 1; overflow-y: auto; padding-right: 5px; }
+.grid-preguntas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.btn-nav-tarjeta {
+background: #FAFAF9; border: 1px solid #E7E5E4; border-radius: 8px; padding: 10px 0; font-weight: 700; color: #78716C; cursor: pointer; transition: 0.2s; font-size: 0.9em;
+}
+.btn-nav-tarjeta:hover { background: #FFFFFF; border-color: #D6D3D1; color: #44403C; }
+.btn-nav-tarjeta.actual { background: #1C1917; border-color: #1C1917; color: white; transform: scale(1.1); box-shadow: 0 4px 10px rgba(0,0,0,0.1); pointer-events: none;}
+.btn-nav-tarjeta.vista { background: #F3F4F6; border-color: #D1D5DB; color: #9CA3AF; }
+
+/* ========================================= */
+/* CONTENIDO CENTRAL (TARJETAS) */
+/* ========================================= */
+.main-content {
+flex-grow: 1;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+position: relative;
+padding: 20px;
+}
+
+.contador-top {
+position: absolute; top: 40px;
+color: #A8A29E; font-weight: 800; font-size: 0.95em; text-transform: uppercase; letter-spacing: 2px;
+}
+
+/* CONTENEDOR FLIPCARD (TARJETA 3D) */
+.flashcard-container { width: 100%; max-width: 600px; perspective: 1200px; }
+.flashcard-inner { width: 100%; min-height: 480px; transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; position: relative; }
+.flashcard-container.flipped .flashcard-inner { transform: rotateY(180deg); }
+
+.flashcard-front, .flashcard-back {
+position: absolute; width: 100%; height: 100%; backface-visibility: hidden; border-radius: 24px; padding: 40px 50px; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 20px 50px rgba(139,115,85,0.1); border: 1px solid rgba(255,255,255,1);
+}
+.flashcard-front { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); }
+.flashcard-back { background: #FFFFFF; transform: rotateY(180deg); border: 2px solid #E7E5E4; }
+
+.etiqueta-tipo { background: #FDF9F1; color: #B45309; border: 1px solid #FEF3C7; padding: 6px 14px; border-radius: 20px; font-size: 0.75em; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 25px; }
+.pregunta-texto { font-size: 1.35em; font-weight: 800; color: #1C1917; text-align: center; margin-bottom: 30px; line-height: 1.5; }
+
+/* OPCIONES FRONTALES */
+.opciones-grid { display: flex; flex-direction: column; gap: 12px; width: 100%; margin-bottom: 30px; }
+.opcion-chip { background: #FAFAF9; border: 1px solid #E7E5E4; padding: 14px 20px; border-radius: 12px; font-weight: 600; color: #44403C; cursor: pointer; transition: 0.2s; font-size: 1em; text-align: left; display: flex; align-items: center;}
+.opcion-chip:hover { border-color: #D6D3D1; background: #FFFFFF; transform: translateX(5px); box-shadow: 0 4px 10px rgba(0,0,0,0.03);}
+.opcion-chip.selected { background: #FEF3C7; border-color: #F59E0B; color: #9A3412; font-weight: 800; transform: translateX(5px); box-shadow: 0 4px 10px rgba(245, 158, 11, 0.15);}
+.opcion-chip.selected::before { content: '•'; color: #F59E0B; font-size: 1.5em; margin-right: 10px; line-height: 0;}
+
+/* RESPUESTA EN EL DORSO */
+.respuesta-correcta { font-size: 2.2em; font-weight: 900; color: #059669; margin-bottom: 20px; text-align: center; }
+.respuesta-desc { font-size: 1.05em; color: #44403C; text-align: center; line-height: 1.6; background: #FAFAF9; padding: 30px; border-radius: 16px; border: 1px solid #E7E5E4; width: 100%; margin-bottom: 30px;}
+
+/* BOTONES DE ACCIÓN */
+.btn-accion { background: linear-gradient(135deg, #D97706, #B45309); color: white; border: none; padding: 16px 30px; border-radius: 14px; font-weight: 800; font-size: 1.05em; cursor: pointer; transition: 0.3s; width: 100%; max-width: 350px; box-shadow: 0 8px 20px rgba(180, 83, 9, 0.25); margin-top: auto;}
+.btn-accion:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(180, 83, 9, 0.35); filter: brightness(1.1); }
+.btn-accion.siguiente { background: #FFFFFF; color: #1C1917; border: 2px solid #E7E5E4; box-shadow: 0 4px 10px rgba(0,0,0,0.02);}
+.btn-accion.siguiente:hover { border-color: #D6D3D1; background: #FAFAF9; transform: translateY(-2px); box-shadow: 0 8px 15px rgba(0,0,0,0.05); }
+
+/* ========================================= */
+/* MODAL PERSONALIZADO */
+/* ========================================= */
+.modal-overlay {
+position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+background: rgba(253, 251, 247, 0.85);
+backdrop-filter: blur(10px);
+z-index: 2000;
+display: flex; justify-content: center; align-items: center;
+opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+.modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+.modal-alerta-content {
+background: #FFFFFF;
+border-radius: 24px;
+padding: 40px;
+width: 90%; max-width: 400px;
+text-align: center;
+transform: translateY(30px) scale(0.95);
+transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+box-shadow: 0 25px 50px rgba(139, 115, 85, 0.15);
+border: 1px solid #E7E5E4;
+}
+.modal-overlay.active .modal-alerta-content { transform: translateY(0) scale(1); }
+
+.modal-alerta-icon { font-size: 4em; margin-bottom: 15px; }
+.modal-alerta-title { font-size: 1.6em; font-weight: 900; color: #1C1917; margin-bottom: 10px; }
+.modal-alerta-text { font-size: 1em; color: #78716C; margin-bottom: 30px; line-height: 1.5; }
+
+.btn-modal-ok {
+background: linear-gradient(135deg, #059669, #10B981); color: white; border: none; padding: 14px 30px; border-radius: 12px; font-weight: 800; font-size: 1em; cursor: pointer; transition: 0.3s; width: 100%; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.2);
+}
+.btn-modal-ok:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(16, 185, 129, 0.3); }
+
+@media (max-width: 850px) {
+.sidebar { position: fixed; left: -100%; top: 0; transition: 0.3s ease; box-shadow: 10px 0 30px rgba(0,0,0,0.1); }
+.sidebar.activa { left: 0; }
+.flashcard-inner { min-height: 520px; }
+.flashcard-front, .flashcard-back { padding: 30px 25px; }
+.pregunta-texto { font-size: 1.15em; }
+}
+</style>
+</head>
+<body>
+
+<div class="dot-matrix"></div>
+
+<!-- BARRA LATERAL -->
+<div class="sidebar" id="sidebar">
+<a href="{% url 'escritorio' %}" class="btn-volver-side">← Volver al Escritorio</a>
+<div class="sidebar-header">
+<h2>TARJETAS</h2>
+<p>Tu progreso</p>
+</div>
+
+<div class="progreso-container">
+<div class="grid-preguntas" id="grid-nav">
+<!-- Se llena con JS -->
+</div>
+</div>
+</div>
+
+<!-- CONTENIDO CENTRAL -->
+<div class="main-content">
+<div class="contador-top" id="contador-tarjetas">Cargando...</div>
+
+<div class="flashcard-container" id="tarjeta">
+<div class="flashcard-inner">
+<!-- FRENTE: PREGUNTA + OPCIONES -->
+<div class="flashcard-front">
+<div class="etiqueta-tipo" id="etiqueta-front">Definición</div>
+<div class="pregunta-texto" id="texto-front">Conectando con la base de datos...</div>
+<div class="opciones-grid" id="opciones-front">
+<!-- Llenado con JS -->
+</div>
+
+<button class="btn-accion" id="btn-voltear" onclick="voltearTarjeta()" style="display:none;">Ver Respuesta ↺</button>
+</div>
+
+<!-- DORSO: RESPUESTA -->
+<div class="flashcard-back">
+<div class="etiqueta-tipo" style="background:#ECFDF5; color:#059669; border-color:#D1FAE5;">Respuesta Correcta</div>
+<div class="respuesta-correcta" id="texto-back">...</div>
+<div class="respuesta-desc" id="desc-back">...</div>
+
+<button class="btn-accion siguiente" onclick="siguienteTarjeta()">Siguiente Tarjeta →</button>
+</div>
+
+</div>
+</div>
+</div>
+
+<!-- MODAL DE ALERTA -->
+<div class="modal-overlay" id="modal-fin">
+<div class="modal-alerta-content">
+<div class="modal-alerta-icon">🎉</div>
+<h2 class="modal-alerta-title">¡Repaso Terminado!</h2>
+<p class="modal-alerta-text">Has revisado todas las tarjetas del mazo. ¡Excelente trabajo!</p>
+<button class="btn-modal-ok" onclick="location.href='{% url 'escritorio' %}'">Volver al Escritorio</button>
+</div>
+</div>
+
+<script>
+let bancoTarjetas = [];
+let indiceActual = 0;
+let tarjetasVistas = new Set();
+
+// 1. OBTENEMOS LAS TARJETAS DE TU BASE DE DATOS
+// -> Verifica que /api/cuestionario/ sea la ruta correcta a tu JSON de preguntas
+fetch('/api/cuestionario/')
+.then(response => response.json())
+.then(data => {
+let todasLasPreguntas = [];
+if (data.secciones) {
+data.secciones.forEach(sec => todasLasPreguntas.push(...sec.preguntas));
+} else if (data.tarjetas) {
+todasLasPreguntas = data.tarjetas;
+} else {
+todasLasPreguntas = data;
+}
+
+// Mezclamos aleatoriamente
+bancoTarjetas = todasLasPreguntas.sort(() => Math.random() - 0.5);
+
+// Mostraremos un máximo de 10 tarjetas por partida (puedes cambiarlo)
+bancoTarjetas = bancoTarjetas.slice(0, 10);
+
+if (bancoTarjetas.length > 0) {
+inicializarGrid();
+cargarTarjeta();
+} else {
+document.getElementById("texto-front").innerText = "No hay tarjetas disponibles en la base de datos.";
+document.getElementById("etiqueta-front").style.display = "none";
+}
+})
+.catch(error => {
+console.error("Error al cargar datos:", error);
+document.getElementById("texto-front").innerText = "Error de conexión con el servidor.";
+});
+
+function inicializarGrid() {
+const gridNav = document.getElementById("grid-nav");
+gridNav.innerHTML = "";
+bancoTarjetas.forEach((_, i) => {
+const btn = document.createElement("button");
+btn.className = "btn-nav-tarjeta";
+btn.id = `nav-btn-${i}`;
+btn.innerText = i + 1;
+btn.onclick = () => irATarjeta(i);
+gridNav.appendChild(btn);
+});
+}
+
+function actualizarGrid() {
+bancoTarjetas.forEach((_, i) => {
+const btn = document.getElementById(`nav-btn-${i}`);
+if(btn) {
+btn.classList.remove('actual');
+if (tarjetasVistas.has(i)) btn.classList.add('vista');
+if (i === indiceActual) btn.classList.add('actual');
+}
+});
+}
+
+function cargarTarjeta() {
+const tarjetaData = bancoTarjetas[indiceActual];
+document.getElementById("contador-tarjetas").innerText = `Tarjeta ${indiceActual + 1} de ${bancoTarjetas.length}`;
+// FRENTE
+document.getElementById("etiqueta-front").innerText = tarjetaData.seccion_nombre || tarjetaData.tipo || "Repaso";
+document.getElementById("texto-front").innerText = tarjetaData.texto || tarjetaData.pregunta;
+const opcionesDiv = document.getElementById("opciones-front");
+opcionesDiv.innerHTML = "";
+if(tarjetaData.opciones && tarjetaData.opciones.length > 0) {
+tarjetaData.opciones.forEach(opc => {
+const textoOpcion = typeof opc === 'object' ? opc.texto : opc;
+const btn = document.createElement("div");
+btn.className = "opcion-chip";
+btn.innerText = textoOpcion;
+btn.onclick = () => seleccionarOpcion(btn);
+opcionesDiv.appendChild(btn);
+});
+}
+
+document.getElementById("btn-voltear").style.display = "block";
+
+// DORSO
+let textoRespuestaCorrecta = tarjetaData.respuesta || tarjetaData.respuesta_correcta || "Respuesta correcta";
+if (tarjetaData.opciones && typeof tarjetaData.opciones[0] === 'object') {
+const opcCorrecta = tarjetaData.opciones.find(o => o.es_correcta);
+if (opcCorrecta) textoRespuestaCorrecta = opcCorrecta.texto;
+}
+
+document.getElementById("texto-back").innerText = textoRespuestaCorrecta;
+document.getElementById("desc-back").innerText = tarjetaData.explicacion || "Este es el concepto asociado a la descripción anterior.";
+document.getElementById("tarjeta").classList.remove("flipped");
+tarjetasVistas.add(indiceActual);
+actualizarGrid();
+}
+
+function seleccionarOpcion(elemento) {
+document.querySelectorAll(".opcion-chip").forEach(el => el.classList.remove("selected"));
+elemento.classList.add("selected");
+}
+
+function voltearTarjeta() {
+document.getElementById("tarjeta").classList.add("flipped");
+}
+
+function irATarjeta(indice) {
+indiceActual = indice;
+cargarTarjeta();
+}
+
+function siguienteTarjeta() {
+if (indiceActual >= bancoTarjetas.length - 1) {
+document.getElementById('modal-fin').classList.add('active');
+} else {
+indiceActual++;
+cargarTarjeta();
+}
+}
+</script>
+</body>
+</html>

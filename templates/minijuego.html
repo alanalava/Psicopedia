@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Minijuego - Racha Psicopédica</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; }
+body { 
+margin: 0; font-family: 'Inter', sans-serif; 
+background-color: #FDF9F1;
+background-image: radial-gradient(at 0% 0%, #F5EBE0 0px, transparent 50%), radial-gradient(at 100% 100%, #EADDCB 0px, transparent 50%);
+color: #1C1917; display: flex; flex-direction: column; align-items: center; min-height: 100vh; position: relative;
+}
+
+.dot-matrix {
+position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+background-image: radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px);
+background-size: 30px 30px;
+z-index: -1;
+pointer-events: none;
+}
+
+/* HUD (Head-Up Display) de Puntuación */
+.hud-top { width: 100%; padding: 20px 40px; display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); border-bottom: 1px solid #E7E5E4; position: sticky; top: 0; z-index: 100; box-sizing: border-box; box-shadow: 0 4px 15px rgba(0,0,0,0.02);}
+.hud-stats { display: flex; gap: 20px; }
+.stat-box { background: #FAFAF9; border: 1px solid #E7E5E4; padding: 10px 20px; border-radius: 12px; font-weight: 800; display: flex; align-items: center; gap: 8px; color: #1C1917;}
+.stat-xp { color: #059669; }
+.stat-racha { color: #D97706; }
+
+.container { max-width: 800px; width: 100%; padding: 40px 20px; text-align: center; margin-top: 50px; }
+
+.card-reto { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border: 1px solid #FFFFFF; border-radius: 24px; padding: 50px; box-shadow: 0 25px 50px rgba(139, 115, 85, 0.15); border-top: 6px solid #D97706; z-index: 1; position: relative;}
+
+h2 { margin-top: 0; color: #B45309; font-size: 1.2em; text-transform: uppercase; letter-spacing: 2px;}
+.pregunta-texto { font-size: 1.5em; font-weight: 800; line-height: 1.5; margin-bottom: 40px; color: #1C1917; }
+
+.opciones-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.btn-opcion { background: #FAFAF9; border: 2px solid #E7E5E4; color: #44403C; padding: 20px; border-radius: 16px; font-size: 1.1em; font-weight: 700; cursor: pointer; transition: 0.2s; font-family: 'Inter', sans-serif;}
+.btn-opcion:hover { background: #FFFFFF; border-color: #D6D3D1; transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+
+.btn-opcion.correcta { background: #10b981; border-color: #059669; color: white;}
+.btn-opcion.incorrecta { background: #ef4444; border-color: #b91c1c; color: white;}
+
+.alerta-resultado { margin-top: 25px; padding: 15px; border-radius: 12px; font-weight: 800; font-size: 1.2em; display: none; }
+.alerta-resultado.correcta { background: #ECFDF5; border: 1px solid #A7F3D0; color: #059669; }
+.alerta-resultado.incorrecta { background: #FEF2F2; border: 1px solid #FECACA; color: #DC2626; }
+
+/* BOTÓN DE GUARDAR Y SALIR ELEGANTE */
+.btn-salir {
+background: #FAFAF9;
+color: #44403C;
+border: 1px solid #E7E5E4;
+padding: 10px 18px;
+border-radius: 12px;
+text-decoration: none;
+font-weight: 600;
+font-size: 0.9em;
+transition: all 0.3s ease;
+display: flex;
+align-items: center;
+gap: 8px;
+}
+.btn-salir svg {
+width: 18px;
+height: 18px;
+fill: none;
+stroke: currentColor;
+stroke-width: 2;
+stroke-linecap: round;
+stroke-linejoin: round;
+transition: transform 0.3s ease;
+}
+.btn-salir:hover {
+background: #FFFFFF;
+box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+transform: translateY(-2px);
+border-color: #D6D3D1;
+color: #1C1917;
+}
+.btn-salir:hover svg {
+transform: scale(1.1);
+}
+</style>
+</head>
+<body>
+<div class="dot-matrix"></div>
+
+<div class="hud-top">
+<a href="{% url 'escritorio' %}" class="btn-salir" onclick="limpiarProgreso()">
+<svg viewBox="0 0 24 24">
+<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+<polyline points="17 21 17 13 7 13 7 21"></polyline>
+<polyline points="7 3 7 8 15 8"></polyline>
+</svg>
+Guardar y Salir
+</a>
+<div class="hud-stats">
+<div class="stat-box stat-xp">🏆 <span id="ui-xp">{{ perfil.xp }}</span> XP</div>
+<div class="stat-box stat-racha">🔥 Racha: <span id="ui-racha">{{ perfil.racha_actual }}</span> (Máx: <span id="ui-mejor">{{ perfil.mejor_racha }}</span>)</div>
+</div>
+</div>
+
+<div class="container">
+<div class="card-reto">
+<h2>¿A qué concepto corresponde?</h2>
+<div class="pregunta-texto" id="texto-pregunta">Cargando reto...</div>
+<div class="opciones-grid" id="contenedor-opciones">
+<!-- Botones inyectados por JS -->
+</div>
+
+<div id="alerta-resultado" class="alerta-resultado"></div>
+</div>
+</div>
+
+<script>
+const csrftoken = '{{ csrf_token }}';
+let retoActualId = null;
+
+function cargarReto() {
+document.getElementById('alerta-resultado').style.display = 'none';
+document.getElementById('contenedor-opciones').innerHTML = '';
+document.getElementById('texto-pregunta').innerText = 'Cargando reto...';
+
+// TRUCO ANTI-CACHÉ
+const urlAntiCache = `/api/minijuego/reto/?t=${new Date().getTime()}`;
+
+fetch(urlAntiCache)
+.then(response => response.json())
+.then(data => {
+if(data.error) {
+document.getElementById('texto-pregunta').innerText = data.error;
+return;
+}
+
+retoActualId = data.id_reto;
+document.getElementById('texto-pregunta').innerText = data.pregunta;
+data.opciones.forEach(opcion => {
+const btn = document.createElement('button');
+btn.className = 'btn-opcion';
+btn.innerText = opcion;
+btn.onclick = () => enviarRespuesta(opcion, btn);
+document.getElementById('contenedor-opciones').appendChild(btn);
+});
+});
+}
+
+function enviarRespuesta(respuestaElegida, btnPresionado) {
+const botones = document.querySelectorAll('.btn-opcion');
+botones.forEach(b => b.disabled = true);
+
+fetch('/api/minijuego/responder/', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+'X-CSRFToken': csrftoken
+},
+body: JSON.stringify({
+id_reto: retoActualId,
+respuesta: respuestaElegida
+})
+})
+.then(response => response.json())
+.then(data => {
+const alerta = document.getElementById('alerta-resultado');
+alerta.style.display = 'block';
+alerta.innerText = data.mensaje;
+
+if (data.es_correcta) {
+btnPresionado.classList.add('correcta');
+alerta.className = 'alerta-resultado correcta';
+} else {
+btnPresionado.classList.add('incorrecta');
+alerta.className = 'alerta-resultado incorrecta';
+botones.forEach(b => {
+if(b.innerText === data.respuesta_correcta) b.classList.add('correcta');
+});
+}
+
+document.getElementById('ui-xp').innerText = data.xp_total;
+document.getElementById('ui-racha').innerText = data.racha_actual;
+document.getElementById('ui-mejor').innerText = data.mejor_racha;
+
+setTimeout(cargarReto, 2000);
+});
+}
+
+function limpiarProgreso() {
+fetch('/api/minijuego/limpiar_sesion/', {
+method: 'POST',
+headers: {
+'Content-Type': 'application/json',
+'X-CSRFToken': csrftoken
+}
+});
+}
+
+window.onload = cargarReto;
+</script>
+</body>
+</html>

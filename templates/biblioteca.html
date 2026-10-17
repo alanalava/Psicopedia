@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biblioteca - Psicopedia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: 'Inter', sans-serif; 
+            background-color: #FDF9F1; 
+            background-image: radial-gradient(at 0% 0%, #F5EBE0 0px, transparent 50%), radial-gradient(at 100% 100%, #EADDCB 0px, transparent 50%);
+            color: #1C1917; 
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .dot-matrix {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Barra de navegación Estandarizada */
+        .nav-bar { 
+            padding: 20px 40px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            background: rgba(255, 255, 255, 0.85); 
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid #E7E5E4; 
+            position: sticky; 
+            top: 0; 
+            z-index: 100;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+        }
+        .nav-bar a { color: #78716C; text-decoration: none; font-weight: 600; transition: color 0.3s; display: flex; align-items: center; gap: 8px;}
+        .nav-bar a:hover { color: #D97706; }
+        .header-title { font-size: 1.5em; font-weight: 900; margin: 0; letter-spacing: 1px; color: #1C1917;}
+        .header-title span { color: #D97706; }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        
+        /* Buscador General */
+        .search-container { margin-bottom: 40px; text-align: center; }
+        .search-box { 
+            width: 100%; 
+            max-width: 600px; 
+            padding: 18px 25px; 
+            font-size: 1.1em; 
+            border-radius: 16px; 
+            border: 2px solid #E7E5E4; 
+            background: #FFFFFF; 
+            color: #1C1917; 
+            outline: none;
+            transition: all 0.3s ease;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 10px 25px rgba(139,115,85,0.05);
+        }
+        .search-box:focus { border-color: #D97706; box-shadow: 0 10px 25px rgba(217, 119, 6, 0.15); }
+        .search-box::placeholder { color: #A8A29E; }
+
+        /* ======================================= */
+        /* VISTA 1: ÍNDICE DE UNIDADES (CATEGORÍAS) */
+        /* ======================================= */
+        #vista-indice {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 25px;
+        }
+
+        .card-unidad {
+            background: #FFFFFF;
+            border-radius: 24px;
+            padding: 30px;
+            text-align: center;
+            cursor: pointer;
+            box-shadow: 0 15px 35px rgba(139,115,85,0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            text-decoration: none;
+            color: #1C1917;
+            border: 1px solid #E7E5E4;
+        }
+
+        .card-unidad:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 25px 40px rgba(139,115,85,0.15);
+            background: #FFFFFF;
+            border-color: #D6D3D1;
+        }
+
+        .unidad-icon-wrapper {
+            width: 75px;
+            height: 75px;
+            margin: 0 auto 20px auto;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2em;
+            background: linear-gradient(135deg, #D97706, #B45309);
+            box-shadow: 0 10px 20px rgba(180, 83, 9, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .card-unidad:hover .unidad-icon-wrapper {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .unidad-title { font-size: 1.3em; font-weight: 800; margin: 0; color: #1C1917;}
+        .unidad-desc { font-size: 0.9em; color: #78716C; font-weight: 600; margin-top: 10px;}
+
+        /* ======================================= */
+        /* VISTA 2: CONTENIDO DE LA UNIDAD         */
+        /* ======================================= */
+        #vista-contenido { display: none; }
+
+        .btn-volver {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #FAFAF9;
+            color: #44403C;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1px solid #E7E5E4;
+            margin-bottom: 30px;
+            transition: 0.3s;
+            font-size: 1em;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+        }
+        .btn-volver:hover { background: #FFFFFF; border-color: #D6D3D1; transform: translateY(-2px); box-shadow: 0 8px 15px rgba(0,0,0,0.05); }
+
+        .categoria-titulo {
+            font-size: 2.2em;
+            color: #1C1917;
+            margin-top: 0;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #E7E5E4;
+            font-weight: 900;
+        }
+
+        .grid-biblioteca { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 30px; }
+
+        /* Tarjetas de Síntomas/Síndromes (Adaptadas a Light Premium) */
+        .card-sindrome {
+            background: #FFFFFF;
+            border-radius: 20px;
+            padding: 30px;
+            position: relative;
+            box-shadow: 0 15px 35px rgba(139,115,85,0.08);
+            border-top: 6px solid #D97706;
+            border-left: 1px solid #E7E5E4;
+            border-right: 1px solid #E7E5E4;
+            border-bottom: 1px solid #E7E5E4;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .card-title { font-size: 1.4em; font-weight: 900; color: #1C1917; margin: 0 0 15px 0; border-bottom: 2px solid #FAFAF9; padding-bottom: 10px;}
+        .card-subtitle { font-size: 0.85em; color: #B45309; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; margin-bottom: 8px;}
+        .card-text { font-size: 0.95em; color: #44403C; line-height: 1.6; margin-bottom: 20px;}
+        
+        .resumen-badge { 
+            background: #FEF3C7; 
+            border: 1px solid #FDE68A; 
+            padding: 12px 15px; 
+            border-radius: 12px; 
+            font-size: 0.9em; 
+            color: #92400E; 
+            font-weight: 600; 
+            line-height: 1.5; 
+            display: flex; 
+            align-items: flex-start; 
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .resumen-badge span { font-size: 1.2em; }
+
+        .detalles-clinicos {
+            background: #FAFAF9;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: auto; 
+            border-left: 4px solid #A8A29E;
+        }
+        .detalle-item { margin-bottom: 12px; }
+        .detalle-item:last-child { margin-bottom: 0; }
+        .detalle-label { font-size: 0.8em; font-weight: 800; color: #78716C; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px;}
+        .detalle-valor { font-size: 0.9em; color: #292524; line-height: 1.5;}
+
+        .oculto { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="dot-matrix"></div>
+    <div class="nav-bar">
+        <h1 class="header-title">PSICO<span>PEDIA</span></h1>
+        <a href="{% url 'escritorio' %}">← Volver al Escritorio</a>
+    </div>
+
+    <div class="container">
+        <div class="search-container">
+            <input type="text" id="buscador" class="search-box" placeholder="🔍 Buscar síndrome, síntoma o categoría..." onkeyup="filtrarBiblioteca()">
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VISTA 1: EL ÍNDICE PRINCIPAL DE UNIDADES   -->
+        <!-- ========================================== -->
+        <div id="vista-indice">
+            {% for categoria, sindromes in biblioteca_agrupada.items %}
+                <div class="card-unidad" data-cat="{{ categoria }}" onclick="abrirUnidad('unidad_{{ forloop.counter }}', '{{ categoria }}')">
+                    
+                    <!-- Icono dinámico con su envoltura -->
+                    <div class="unidad-icon-wrapper">
+                        <span class="unidad-icon">🧩</span>
+                    </div>
+
+                    <h2 class="unidad-title">{{ categoria }}</h2>
+                    <div class="unidad-desc">{{ sindromes|length }} Conceptos clínicos</div>
+                </div>
+            {% empty %}
+                <p style="grid-column: 1 / -1; text-align: center; color: #A8A29E; font-size: 1.1em; font-weight: 600;">Aún no hay unidades en la biblioteca.</p>
+            {% endfor %}
+        </div>
+
+        <!-- ========================================== -->
+        <!-- VISTA 2: EL CONTENIDO DE LA UNIDAD ELEGIDA -->
+        <!-- ========================================== -->
+        <div id="vista-contenido">
+            <button class="btn-volver" onclick="volverAlIndice()">← Volver al Índice de Unidades</button>
+            
+            <h2 class="categoria-titulo" id="titulo-unidad-actual">Nombre de la Unidad</h2>
+            
+            {% for categoria, sindromes in biblioteca_agrupada.items %}
+                <div class="grupo-tarjetas" id="unidad_{{ forloop.counter }}" style="display: none;">
+                    <div class="grid-biblioteca">
+                        {% for concepto in sindromes %}
+                        <div class="card-sindrome">
+                            <h3 class="card-title">{{ concepto.nombre }}</h3>
+                            
+                            <div class="card-subtitle">Definición Clínica</div>
+                            <div class="card-text">{{ concepto.que_es }}</div>
+                            
+                            <div class="card-subtitle">Características Clave</div>
+                            <div class="card-text">{{ concepto.caracteristicas }}</div>
+                            
+                            <div class="resumen-badge">
+                                <span>💡</span> 
+                                <div>{{ concepto.resumen_30s }}</div>
+                            </div>
+
+                            {% if concepto.criterios_diagnosticos or concepto.notas_clinicas %}
+                            <div class="detalles-clinicos">
+                                {% if concepto.criterios_diagnosticos %}
+                                <div class="detalle-item">
+                                    <span class="detalle-label">Criterios Diagnósticos (DSM-5)</span>
+                                    <span class="detalle-valor">{{ concepto.criterios_diagnosticos }}</span>
+                                </div>
+                                {% endif %}
+                                
+                                {% if concepto.notas_clinicas %}
+                                <div class="detalle-item">
+                                    <span class="detalle-label">Notas Clínicas</span>
+                                    <span class="detalle-valor">{{ concepto.notas_clinicas }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+    </div>
+
+    <script>
+        // ----------------------------------------------------
+        // MOTOR DE ICONOS Y COLORES DINÁMICOS
+        // ----------------------------------------------------
+        document.addEventListener("DOMContentLoaded", function() {
+            const diccIconos = [
+                { palabra: 'conciencia', emoji: '👁️', gradiente: 'linear-gradient(135deg, #8b5cf6, #6366f1)', sombra: 'rgba(139, 92, 246, 0.4)' },
+                { palabra: 'orientación', emoji: '🧭', gradiente: 'linear-gradient(135deg, #f59e0b, #d97706)', sombra: 'rgba(245, 158, 11, 0.4)' },
+                { palabra: 'atención', emoji: '🎯', gradiente: 'linear-gradient(135deg, #ef4444, #b91c1c)', sombra: 'rgba(239, 68, 68, 0.4)' },
+                { palabra: 'memoria', emoji: '🕰️', gradiente: 'linear-gradient(135deg, #10b981, #059669)', sombra: 'rgba(16, 185, 129, 0.4)' },
+                { palabra: 'percepción', emoji: '🌌', gradiente: 'linear-gradient(135deg, #d946ef, #a21caf)', sombra: 'rgba(217, 70, 239, 0.4)' },
+                { palabra: 'pensamiento', emoji: '💭', gradiente: 'linear-gradient(135deg, #0ea5e9, #0284c7)', sombra: 'rgba(14, 165, 233, 0.4)' },
+                { palabra: 'lenguaje', emoji: '🗣️', gradiente: 'linear-gradient(135deg, #f43f5e, #e11d48)', sombra: 'rgba(244, 63, 94, 0.4)' },
+                { palabra: 'afectiv', emoji: '🎭', gradiente: 'linear-gradient(135deg, #ec4899, #be185d)', sombra: 'rgba(236, 72, 153, 0.4)' },
+                { palabra: 'comportamiento', emoji: '⚡', gradiente: 'linear-gradient(135deg, #f97316, #ea580c)', sombra: 'rgba(249, 115, 22, 0.4)' },
+                { palabra: 'fisiológicas', emoji: '🛌', gradiente: 'linear-gradient(135deg, #64748b, #475569)', sombra: 'rgba(100, 116, 139, 0.4)' },
+                { palabra: 'relación', emoji: '🤝', gradiente: 'linear-gradient(135deg, #14b8a6, #0d9488)', sombra: 'rgba(20, 184, 166, 0.4)' },
+                
+                { palabra: 'psicopático', emoji: '🛑', gradiente: 'linear-gradient(135deg, #dc2626, #991b1b)', sombra: 'rgba(220, 38, 38, 0.4)' },
+                { palabra: 'agudos', emoji: '🌩️', gradiente: 'linear-gradient(135deg, #facc15, #ca8a04)', sombra: 'rgba(202, 138, 4, 0.4)' },
+                { palabra: 'crónicos', emoji: '⏳', gradiente: 'linear-gradient(135deg, #9ca3af, #4b5563)', sombra: 'rgba(75, 85, 99, 0.4)' },
+                { palabra: 'discinéticos', emoji: '🌪️', gradiente: 'linear-gradient(135deg, #2dd4bf, #0f766e)', sombra: 'rgba(15, 118, 110, 0.4)' },
+                { palabra: 'delirante', emoji: '🌀', gradiente: 'linear-gradient(135deg, #c084fc, #7e22ce)', sombra: 'rgba(126, 34, 206, 0.4)' },
+                { palabra: 'esquizofrénico', emoji: '🧩', gradiente: 'linear-gradient(135deg, #84cc16, #4d7c0f)', sombra: 'rgba(77, 124, 15, 0.4)' },
+                { palabra: 'hipocondríaco', emoji: '🩺', gradiente: 'linear-gradient(135deg, #38bdf8, #0369a1)', sombra: 'rgba(3, 105, 161, 0.4)' },
+                { palabra: 'asténico', emoji: '🪫', gradiente: 'linear-gradient(135deg, #94a3b8, #334155)', sombra: 'rgba(51, 65, 85, 0.4)' },
+                
+                { palabra: 'síndrome', emoji: '📋', gradiente: 'linear-gradient(135deg, #334155, #0f172a)', sombra: 'rgba(51, 65, 85, 0.4)' }
+            ];
+
+            let tarjetas = document.querySelectorAll('.card-unidad');
+            
+            tarjetas.forEach(tarjeta => {
+                let categoriaNombre = tarjeta.getAttribute('data-cat').toLowerCase();
+                let wrapper = tarjeta.querySelector('.unidad-icon-wrapper');
+                let icono = tarjeta.querySelector('.unidad-icon');
+                
+                let asignado = false;
+                for(let item of diccIconos) {
+                    if(categoriaNombre.includes(item.palabra)) {
+                        wrapper.style.background = item.gradiente;
+                        wrapper.style.boxShadow = `0 10px 20px ${item.sombra}`;
+                        icono.innerText = item.emoji;
+                        asignado = true;
+                        break;
+                    }
+                }
+                
+                if(!asignado) {
+                    wrapper.style.background = 'linear-gradient(135deg, #D97706, #B45309)';
+                    wrapper.style.boxShadow = '0 10px 20px rgba(180, 83, 9, 0.2)';
+                    icono.innerText = '🧩';
+                }
+            });
+        });
+
+        // ----------------------------------------------------
+        // LÓGICA DE NAVEGACIÓN (ÍNDICE vs UNIDAD)
+        // ----------------------------------------------------
+        function abrirUnidad(id_unidad, nombre_categoria) {
+            document.getElementById('vista-indice').style.display = 'none';
+            document.getElementById('vista-contenido').style.display = 'block';
+            document.getElementById('titulo-unidad-actual').innerText = nombre_categoria;
+            
+            let todosLosGrupos = document.getElementsByClassName('grupo-tarjetas');
+            for(let i=0; i<todosLosGrupos.length; i++) {
+                todosLosGrupos[i].style.display = 'none';
+            }
+            document.getElementById(id_unidad).style.display = 'block';
+
+            document.getElementById('buscador').value = '';
+            filtrarBiblioteca(); 
+        }
+
+        function volverAlIndice() {
+            document.getElementById('vista-contenido').style.display = 'none';
+            document.getElementById('vista-indice').style.display = 'grid';
+            document.getElementById('buscador').value = '';
+            filtrarBiblioteca();
+        }
+
+        // ----------------------------------------------------
+        // LÓGICA DEL BUSCADOR
+        // ----------------------------------------------------
+        function filtrarBiblioteca() {
+            let input = document.getElementById('buscador').value.toLowerCase();
+            let tarjetas = document.getElementsByClassName('card-sindrome');
+            let indiceVisible = document.getElementById('vista-indice').style.display !== 'none';
+
+            if(input.length > 0 && indiceVisible) {
+                document.getElementById('vista-indice').style.display = 'none';
+                document.getElementById('vista-contenido').style.display = 'block';
+                document.getElementById('titulo-unidad-actual').innerText = "Resultados de Búsqueda";
+                
+                let todosLosGrupos = document.getElementsByClassName('grupo-tarjetas');
+                for(let i=0; i<todosLosGrupos.length; i++) {
+                    todosLosGrupos[i].style.display = 'block'; 
+                }
+            } else if (input.length === 0 && document.getElementById('titulo-unidad-actual').innerText === "Resultados de Búsqueda") {
+                volverAlIndice();
+                return;
+            }
+
+            for (let j = 0; j < tarjetas.length; j++) {
+                let textoTarjeta = tarjetas[j].innerText.toLowerCase();
+                if (textoTarjeta.includes(input)) {
+                    tarjetas[j].style.display = "flex";
+                } else {
+                    tarjetas[j].style.display = "none";
+                }
+            }
+        }
+    </script>
+</body>
+</html>

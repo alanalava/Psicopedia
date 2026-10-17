@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Expedientes Clínicos - Psicopedia</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            margin: 0; 
+            background-color: #FDF9F1; 
+            background-image: radial-gradient(at 0% 0%, #F5EBE0 0px, transparent 50%), radial-gradient(at 100% 100%, #EADDCB 0px, transparent 50%);
+            color: #1C1917;
+            display: flex; 
+            height: 100vh; 
+            overflow: hidden; 
+            position: relative;
+        }
+
+        .dot-matrix {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: -1;
+            pointer-events: none;
+        }
+        
+        /* BARRA LATERAL (Modo Claro Premium) */
+        .sidebar { width: 320px; background: #FFFFFF; color: #1C1917; display: none; flex-direction: column; box-shadow: 4px 0 15px rgba(0,0,0,0.02); z-index: 10; border-right: 1px solid #E7E5E4;}
+        .sidebar-header { padding: 25px 20px; background: #FAFAF9; text-align: center; border-bottom: 2px solid #D97706; }
+        .sidebar-header h2 { margin: 0; font-size: 1.4em; font-weight: 900; color: #1C1917; letter-spacing: 1px;}
+        .sidebar-header h2 span { color: #D97706; }
+        .sidebar-content { overflow-y: auto; flex-grow: 1; padding-bottom: 20px; }
+        .titulo-seccion { margin: 20px 15px 10px 15px; color: #78716C; font-size: 0.75em; text-transform: uppercase; letter-spacing: 1.5px; font-weight: 800; }
+        .grid-preguntas { padding: 5px 15px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
+        
+        .btn-nav-pregunta { background: #FAFAF9; color: #44403C; border: 1px solid #E7E5E4; border-radius: 8px; padding: 10px 0; font-weight: 700; cursor: pointer; transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1); font-size: 0.9em; }
+        .btn-nav-pregunta:hover { background: #FFFFFF; border-color: #D6D3D1; transform: translateY(-2px);}
+        .btn-nav-pregunta.actual { border: 2px solid #D97706; background: #FEF3C7; color: #92400E; transform: scale(1.1); box-shadow: 0 4px 10px rgba(245, 158, 11, 0.2);}
+        .btn-nav-pregunta.respondida { background: #10b981; color: white; border-color: #059669;}
+
+        /* CONTENIDO PRINCIPAL */
+        .main-content { flex-grow: 1; display: flex; justify-content: center; align-items: flex-start; padding: 50px 20px; overflow-y: auto; z-index: 1;}
+        .card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border: 1px solid #FFFFFF; border-radius: 24px; padding: 50px; box-shadow: 0 25px 50px rgba(139, 115, 85, 0.15); width: 100%; max-width: 850px; border-top: 6px solid #D97706; }
+        
+        .etiqueta-seccion { background: #FEF3C7; color: #9A3412; padding: 6px 14px; border-radius: 20px; font-size: 0.85em; font-weight: 800; border: 1px solid #FDE68A;}
+        h2 { color: #1C1917; font-size: 1.6em; line-height: 1.6; margin-top: 0; font-weight: 900;}
+        
+        /* CAMPO DE TEXTO */
+        .input-respuesta { width: 100%; padding: 20px; font-size: 1.1em; border: 2px solid #E7E5E4; border-radius: 12px; margin-top: 20px; outline: none; transition: 0.3s; font-family: 'Inter', sans-serif; background: #FAFAF9; color: #292524;}
+        .input-respuesta:focus { border-color: #F59E0B; box-shadow: 0 0 15px rgba(245, 158, 11, 0.15); background: #FFFFFF;}
+        
+        /* CONTROLES */
+        .controles { display: flex; justify-content: space-between; margin-top: 40px; }
+        .btn-control { padding: 14px 28px; font-size: 16px; font-weight: 800; border-radius: 12px; cursor: pointer; border: none; transition: 0.3s; text-decoration: none;}
+        .btn-anterior { background: #FAFAF9; color: #44403C; border: 1px solid #E7E5E4;}
+        .btn-anterior:hover { background: #FFFFFF; border-color: #D6D3D1; transform: translateY(-2px);}
+        .btn-siguiente { background: linear-gradient(135deg, #D97706, #B45309); color: white; box-shadow: 0 8px 20px rgba(180, 83, 9, 0.25);}
+        .btn-siguiente:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(180, 83, 9, 0.35); filter: brightness(1.1);}
+        .btn-finalizar { background: linear-gradient(135deg, #10b981, #059669); color: white; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.25);}
+        .btn-finalizar:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(16, 185, 129, 0.35); filter: brightness(1.1);}
+
+        /* ========================================= */
+        /* ESTILOS DE TARJETAS DE SELECCIÓN (GRID)   */
+        /* ========================================= */
+        .header-section { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header-section h2 { margin: 0; font-size: 1.8em; color: #1C1917; font-weight: 900; border-bottom: none;}
+
+        .grid-archivos { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-top: 20px; }
+
+        .card-archivo { background: #FFFFFF; border: 1px solid #E7E5E4; border-radius: 20px; padding: 40px 30px; text-decoration: none; color: #1C1917; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; cursor: pointer; box-shadow: 0 10px 25px rgba(139, 115, 85, 0.05);}
+        .card-archivo:hover { transform: translateY(-8px); box-shadow: 0 15px 35px rgba(139, 115, 85, 0.15); border-color: #D6D3D1; background: #FFFFFF; }
+
+        .icon-wrapper { width: 85px; height: 85px; border-radius: 22px; display: flex; align-items: center; justify-content: center; font-size: 2.8em; margin-bottom: 25px; color: white; transition: transform 0.3s ease; }
+        .card-archivo:hover .icon-wrapper { transform: scale(1.1) rotate(5deg); }
+
+        .card-sindromes .icon-wrapper { background: linear-gradient(135deg, #D97706, #B45309); box-shadow: 0 10px 20px rgba(180, 83, 9, 0.2); }
+        .card-sindromes:hover { border-color: #D97706; }
+        .card-semiologia .icon-wrapper { background: linear-gradient(135deg, #10b981, #059669); box-shadow: 0 10px 20px rgba(16, 185, 129, 0.2); }
+        .card-semiologia:hover { border-color: #10b981; }
+
+        .card-title { font-size: 1.4em; font-weight: 800; margin: 0 0 12px 0; color: #1C1917; }
+        .card-desc { font-size: 1em; color: #78716C; line-height: 1.5; margin: 0; font-weight: 600; }
+
+        /* ========================================= */
+        /* ESTILOS DE RESULTADOS Y REVISIÓN CLAROS   */
+        /* ========================================= */
+        
+        #resultados-container {
+            border-top: none;
+            background: #FFFFFF;
+        }
+
+        .header-resultados {
+            text-align: center;
+            margin-bottom: 50px;
+            padding: 40px 20px;
+            border-radius: 20px;
+            background: #FAFAF9;
+            border: 1px solid #E7E5E4;
+            color: #1C1917;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header-resultados h2 {
+            color: #1C1917;
+            font-size: 2.8em;
+            margin: 0 0 15px 0;
+            font-weight: 900;
+            position: relative;
+            z-index: 1;
+        }
+
+        .medalla-calificacion {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            background: #FFFFFF;
+            padding: 12px 30px;
+            border-radius: 100px;
+            border: 2px solid #E7E5E4;
+            position: relative;
+            z-index: 1;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        }
+
+        .medalla-calificacion h3 {
+            margin: 0;
+            font-size: 1.6em;
+            font-weight: 900;
+        }
+        
+        .medalla-calificacion span {
+            font-size: 1.6em;
+        }
+
+        /* Tarjetas de Revisión de Casos */
+        .caja-evaluacion { 
+            margin-top: 25px; 
+            padding: 30px; 
+            border-radius: 16px; 
+            background: #FAFAF9;
+            border: 1px solid #E7E5E4;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        
+        .caja-evaluacion:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+            background: #FFFFFF;
+        }
+
+        .caja-evaluacion.correcto { border-left: 6px solid #10b981; }
+        .caja-evaluacion.incorrecto { border-left: 6px solid #ef4444; }
+        
+        .badge-estado {
+            position: absolute;
+            top: -12px;
+            right: 30px;
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .badge-correcto { background: #10b981; color: white; }
+        .badge-incorrecto { background: #DC2626; color: white; }
+
+        .eval-pregunta {
+            font-size: 1.2em;
+            color: #1C1917;
+            font-weight: 800;
+            margin: 0 0 15px 0;
+            padding-right: 80px;
+        }
+
+        .eval-desc {
+            color: #78716C;
+            font-size: 1em;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            background: #FFFFFF;
+            padding: 15px 20px;
+            border-radius: 10px;
+            border: 1px dashed #E7E5E4;
+        }
+
+        .eval-user-ans {
+            font-size: 1.1em;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 600;
+        }
+
+        .texto-correcto { color: #059669; font-weight: 800; background: #ecfdf5; padding: 4px 10px; border-radius: 8px; border: 1px solid #A7F3D0;}
+        .texto-incorrecto { color: #DC2626; font-weight: 800; background: #fff1f2; padding: 4px 10px; border-radius: 8px; border: 1px solid #FECACA;}
+
+        .explicacion-box {
+            background: #FFFFFF;
+            padding: 18px 25px;
+            border-radius: 12px;
+            margin-top: 20px;
+            border: 1px solid #E7E5E4;
+            border-left: 4px solid #D97706;
+            color: #44403C;
+            font-size: 1.05em;
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        .explicacion-box span { font-size: 1.5em; } 
+
+    </style>
+</head>
+<body>
+    <div class="dot-matrix"></div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h2>EXPEDI<span>ENTES</span></h2>
+            <p style="font-size: 0.8em; margin-top: 5px; color: #A8A29E; font-weight: 800; text-transform: uppercase;">Análisis de Casos</p>
+        </div>
+        <div id="sidebar-content" class="sidebar-content"></div>
+    </div>
+
+    <div class="main-content">
+        <!-- PANTALLA DE SELECCIÓN (GRID) -->
+        <div class="card" id="pantalla-seleccion">
+            <div class="header-section">
+                <h2>Selecciona el Archivo Clínico</h2>
+                <a href="{% url 'escritorio' %}" class="btn-control btn-anterior" style="font-size: 0.9em; padding: 10px 20px;">← Escritorio</a>
+            </div>
+            <div id="lista-secciones" class="grid-archivos"></div>
+        </div>
+
+        <!-- CONTENEDOR DE CASOS -->
+        <div class="card" id="quiz-container" style="display:none; border-top-color: #D97706;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+                <div>
+                    <span style="color: #78716C; font-weight: 800; margin-right: 10px;" id="indicador-pregunta">Caso 1</span>
+                    <span class="etiqueta-seccion" id="indicador-seccion">Sección</span>
+                </div>
+            </div>
+            
+            <h2 id="pregunta-texto">Cargando caso...</h2>
+            <p id="pregunta-directa" style="font-weight: 800; color: #D97706; font-size: 1.1em;"></p>
+            
+            <input type="text" id="input-usuario" class="input-respuesta" placeholder="Escribe tu diagnóstico aquí..." autocomplete="off" onkeyup="registrarInput()">
+
+            <div class="controles">
+                <button class="btn-control btn-anterior" id="btn-anterior" onclick="cambiarPregunta(-1)">← Anterior</button>
+                <button class="btn-control btn-siguiente" id="btn-siguiente" onclick="cambiarPregunta(1)">Siguiente Caso →</button>
+                <button class="btn-control btn-finalizar" id="btn-finalizar" style="display:none;" onclick="entregarExpediente()">Entregar Expediente</button>
+            </div>
+        </div>
+
+        <!-- RESULTADOS FINALES -->
+        <div class="card" id="resultados-container" style="display:none;">
+            
+            <div class="header-resultados">
+                <h2 id="titulo-resultados">¡Expediente Entregado!</h2>
+                <div class="medalla-calificacion">
+                    <span id="medalla-emoji">🎯</span>
+                    <h3 id="puntuacion-final">Calificación: 0%</h3>
+                </div>
+            </div>
+            
+            <h3 style="color: #1C1917; margin-bottom: 25px; font-size: 1.5em; border-bottom: 2px solid #E7E5E4; padding-bottom: 15px; font-weight: 900;">Revisión Detallada</h3>
+            
+            <div id="revision-respuestas"></div>
+            
+            <div style="text-align: center; margin-top: 50px;">
+                <button class="btn-control btn-anterior" onclick="location.href='{% url 'escritorio' %}'" style="margin-right: 15px;">← Volver al Escritorio</button>
+                <button class="btn-control btn-siguiente" onclick="location.reload()">Analizar Nuevo Archivo ↻</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let modulos = []; 
+        let casos = [];         
+        let indiceActual = 0;
+        let respuestasUsuario = []; 
+
+        fetch('/api/expedientes/')
+            .then(response => response.json())
+            .then(data => {
+                modulos = data.modulos;
+                construirMenu();
+            });
+
+        function construirMenu() {
+            const lista = document.getElementById('lista-secciones');
+            lista.innerHTML = ''; 
+
+            modulos.forEach(modulo => {
+                const btn = document.createElement('div');
+                
+                let iconStr = '📄';
+                let extraClass = 'card-default';
+                let nombreM = modulo.nombre.toLowerCase();
+                
+                if (nombreM.includes('síndrome')) {
+                    iconStr = '🗂️';
+                    extraClass = 'card-sindromes';
+                } else if (nombreM.includes('breve') || nombreM.includes('semiolo')) {
+                    iconStr = '🔍';
+                    extraClass = 'card-semiologia';
+                }
+
+                btn.className = `card-archivo ${extraClass}`;
+                btn.innerHTML = `
+                    <div class="icon-wrapper">${iconStr}</div>
+                    <h2 class="card-title">${modulo.nombre}</h2>
+                    <p class="card-desc">${modulo.descripcion}</p>
+                `;
+                
+                btn.onclick = () => iniciarExpediente(modulo.casos); 
+                lista.appendChild(btn);
+            });
+        }
+
+        function iniciarExpediente(casosElegidos) {
+            let casosAleatorios = [...casosElegidos].sort(() => 0.5 - Math.random());
+            casos = casosAleatorios.slice(0, 10);
+            respuestasUsuario = new Array(casos.length).fill('');
+            indiceActual = 0;
+            
+            document.getElementById('pantalla-seleccion').style.display = 'none';
+            document.getElementById('sidebar').style.display = 'flex';
+            document.getElementById('quiz-container').style.display = 'block';
+
+            construirSidebar();
+            renderizarPregunta();
+        }
+
+        function construirSidebar() {
+            const sidebarContent = document.getElementById('sidebar-content');
+            sidebarContent.innerHTML = '';
+            
+            const grid = document.createElement('div');
+            grid.className = 'grid-preguntas';
+            grid.style.marginTop = '20px';
+            
+            casos.forEach((_, i) => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-nav-pregunta';
+                btn.innerText = i + 1;
+                btn.id = `nav-btn-${i}`;
+                btn.onclick = () => irAPregunta(i);
+                grid.appendChild(btn);
+            });
+            sidebarContent.appendChild(grid);
+        }
+
+        function registrarInput() {
+            const inputVal = document.getElementById('input-usuario').value;
+            respuestasUsuario[indiceActual] = inputVal;
+            
+            const btnNav = document.getElementById(`nav-btn-${indiceActual}`);
+            if (inputVal.trim() !== '') {
+                btnNav.classList.add('respondida');
+            } else {
+                btnNav.classList.remove('respondida');
+            }
+        }
+
+        function renderizarPregunta() {
+            const caso = casos[indiceActual];
+            document.getElementById('indicador-pregunta').innerText = `Caso ${indiceActual + 1} de ${casos.length}`;
+            document.getElementById('indicador-seccion').innerText = caso.seccion;
+            document.getElementById('pregunta-texto').innerText = caso.descripcion;
+            document.getElementById('pregunta-directa').innerText = caso.pregunta;
+            
+            const input = document.getElementById('input-usuario');
+            input.value = respuestasUsuario[indiceActual];
+            input.focus();
+
+            casos.forEach((_, i) => {
+                const btn = document.getElementById(`nav-btn-${i}`);
+                btn.classList.remove('actual');
+                if (i === indiceActual) btn.classList.add('actual');
+            });
+
+            document.getElementById('btn-anterior').style.visibility = (indiceActual === 0) ? 'hidden' : 'visible';
+            
+            if (indiceActual === casos.length - 1) {
+                document.getElementById('btn-siguiente').style.display = 'none';
+                document.getElementById('btn-finalizar').style.display = 'block';
+            } else {
+                document.getElementById('btn-siguiente').style.display = 'block';
+                document.getElementById('btn-finalizar').style.display = 'none';
+            }
+        }
+
+        function cambiarPregunta(direccion) {
+            indiceActual += direccion;
+            renderizarPregunta();
+        }
+
+        function irAPregunta(indice) {
+            indiceActual = indice;
+            renderizarPregunta();
+        }
+
+        // ==========================================
+        // FUNCIÓN DE ENTREGAR EXPEDIENTE (PREMIUM)
+        // ==========================================
+        function entregarExpediente() {
+            document.getElementById('sidebar').style.display = 'none';
+            document.getElementById('quiz-container').style.display = 'none';
+            document.getElementById('resultados-container').style.display = 'block';
+
+            let aciertos = 0;
+            const contenedorRevision = document.getElementById('revision-respuestas');
+            contenedorRevision.innerHTML = '';
+
+            casos.forEach((caso, index) => {
+                const respuestaUser = respuestasUsuario[index].trim().toLowerCase();
+                const respuestaOficial = caso.respuesta_correcta.toLowerCase();
+                
+                let esCorrecta = false;
+                if (respuestaUser !== '') {
+                    esCorrecta = respuestaOficial.includes(respuestaUser) || respuestaUser.includes(respuestaOficial);
+                }
+
+                if (esCorrecta) aciertos++;
+
+                const div = document.createElement('div');
+                div.className = `caja-evaluacion ${esCorrecta ? 'correcto' : 'incorrecto'}`;
+                
+                let badgeHTML = esCorrecta 
+                    ? `<div class="badge-estado badge-correcto">✓ Correcto</div>` 
+                    : `<div class="badge-estado badge-incorrecto">✗ Incorrecto</div>`;
+
+                let diagnosticoUser = respuestasUsuario[index] || 'Ninguno (En blanco)';
+
+                let explicacionHTML = !esCorrecta 
+                    ? `<div class="explicacion-box">
+                         <span>💡</span>
+                         <div>
+                            <strong style="display:block; margin-bottom: 5px; color: #92400E;">Diagnóstico Oficial:</strong> 
+                            <span style="font-weight: 700;">${caso.respuesta_correcta}</span>
+                         </div>
+                       </div>` 
+                    : '';
+
+                div.innerHTML = `
+                    ${badgeHTML}
+                    <h4 class="eval-pregunta">Caso ${index + 1}: ${caso.pregunta}</h4>
+                    <p class="eval-desc">"${caso.descripcion}"</p>
+                    <p class="eval-user-ans">Tu diagnóstico: <span class="${esCorrecta ? 'texto-correcto' : 'texto-incorrecto'}">${diagnosticoUser}</span></p>
+                    ${explicacionHTML}
+                `;
+                
+                contenedorRevision.appendChild(div);
+            });
+
+            // Configurar el Header de Resultados según la puntuación
+            const porcentaje = Math.round((aciertos / casos.length) * 100);
+            const tituloRes = document.getElementById('titulo-resultados');
+            const h3Puntaje = document.getElementById('puntuacion-final');
+            const emoji = document.getElementById('medalla-emoji');
+            
+            h3Puntaje.innerText = `Calificación: ${porcentaje}% (${aciertos}/${casos.length})`;
+
+            if (porcentaje >= 90) {
+                tituloRes.innerText = "¡Excelente Trabajo!";
+                h3Puntaje.style.color = "#059669"; // Verde Oscuro
+                emoji.innerText = "🏆";
+            } else if (porcentaje >= 60) {
+                tituloRes.innerText = "¡Buen Intento!";
+                h3Puntaje.style.color = "#D97706"; // Naranja
+                emoji.innerText = "⭐";
+            } else {
+                tituloRes.innerText = "Hay que seguir practicando";
+                h3Puntaje.style.color = "#DC2626"; // Rojo
+                emoji.innerText = "💪";
+            }
+        }
+    </script>
+</body>
+</html>

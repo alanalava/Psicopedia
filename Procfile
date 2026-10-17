@@ -1,0 +1,1 @@
+web: gunicorn psicopedia.wsgi --log-file -
