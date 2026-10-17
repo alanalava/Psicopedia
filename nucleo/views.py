@@ -58,11 +58,9 @@ def vista_login(request):
             usuario = form.get_user()
             login(request, usuario)
             return redirect('escritorio')
-        else:
-            # Añadir mensaje de error si el formulario no es válido
-            messages.error(request, "Usuario o contraseña incorrectos. (Recuerda que en producción la base de datos está limpia)")
     else:
         form = AuthenticationForm()
+        
     return render(request, 'login.html', {'form': form})
 
 def vista_logout(request):
