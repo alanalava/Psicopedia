@@ -47,8 +47,8 @@
 
         .input-group { text-align: left; margin-bottom: 25px; }
         .input-label { display: block; color: #78716C; font-size: 0.75em; font-weight: 800; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
-        .input-field { width: 100%; padding: 14px 16px; background: #F5F5F4; border: 1px solid rgba(0,0,0,0.05); border-radius: 8px; color: #292524; font-size: 1.05em; font-weight: 600; outline: none; transition: all 0.3s ease; font-family: 'Inter', sans-serif; }
-        .input-field:focus { box-shadow: 0 0 0 3px rgba(198, 142, 88, 0.3); border-color: #C68E58; }
+        .input-field { width: 100%; padding: 14px 16px; background: #FAFAF9; border: 1px solid #E7E5E4; border-radius: 8px; color: #292524; font-size: 1.05em; font-weight: 600; outline: none; transition: all 0.3s ease; font-family: 'Inter', sans-serif; }
+        .input-field:focus { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); border-color: #F59E0B; background: #FFFFFF; }
 
         .btn-submit { width: 100%; background: linear-gradient(135deg, #D97706, #B45309); color: white; border: none; padding: 14px; font-size: 1.05em; font-weight: 800; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; margin-top: 5px; margin-bottom: 25px; box-shadow: 0 8px 20px rgba(180, 83, 9, 0.25); }
         .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(180, 83, 9, 0.35); filter: brightness(1.1); }
@@ -57,7 +57,7 @@
         .enlace-registro strong { color: #B45309; font-weight: 800; }
         .enlace-registro:hover strong { color: #D97706; }
         
-        .error-msg { background: #FEF2F2; color: #DC2626; border: 1px solid #F87171; padding: 12px; border-radius: 8px; margin-bottom: 25px; font-size: 0.9em; font-weight: 600;}
+        .error-msg { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; padding: 12px; border-radius: 8px; margin-bottom: 25px; font-size: 0.95em; font-weight: 700; text-align: center;}
 
         @media (max-width: 650px) {
             .logo-text { font-size: 2.5em; }
@@ -79,10 +79,10 @@
 
     <div class="login-card">
         
-        <!-- ESTO TE AVISARÁ SI EL USUARIO NO EXISTE O HAY ERROR -->
+        <!-- ESTO TE AVISARÁ SI EL USUARIO NO EXISTE O HAY ERROR (VERSIÓN LIMPIA) -->
         {% if form.errors %}
-            <div class="error-msg" style="background: #FEF2F2; color: #DC2626; border: 1px solid #F87171; padding: 12px; border-radius: 8px; margin-bottom: 25px; font-weight: 600; text-align: center;">
-                Usuario o contraseña incorrectos.<br><span style="font-size: 0.85em;">(Recuerda que en producción la base de datos está limpia)</span>
+            <div class="error-msg">
+                Usuario o contraseña incorrectos.
             </div>
         {% endif %}
 
