@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class Sintoma(models.Model):
     nombre = models.CharField(max_length=150, unique=True)
@@ -88,3 +90,14 @@ class PerfilJugador(models.Model):
 
     def __str__(self):
         return self.usuario.username
+
+# ==========================================
+# ESTA ES LA MAGIA QUE EVITA QUE SE CONGELE EL LOGIN
+# (Debe ir afuera de la clase PerfilJugador)
+# ==========================================
+@receiver(post_save, sender=User)
+def crear_o_actualizar_perfil_jugador(sender, instance, created, **kwargs):
+    if created:
+        PerfilJugador.objects.create(usuario=instance)
+    else:
+        instance.perfiljugador.save()
