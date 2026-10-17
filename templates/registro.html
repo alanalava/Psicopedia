@@ -10,63 +10,71 @@
         * { box-sizing: border-box; }
         
         body { 
-            margin: 0; padding: 20px; font-family: 'Inter', sans-serif; background-color: #FDF9F1; 
-            background-image: radial-gradient(at 0% 0%, #F5EBE0 0px, transparent 50%), radial-gradient(at 100% 100%, #EADDCB 0px, transparent 50%);
-            color: #2D241E; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow-x: hidden; position: relative;
+            margin: 0; 
+            padding: 20px; 
+            font-family: 'Inter', sans-serif; 
+            background-color: #FDF9F1; 
+            background-image: 
+                radial-gradient(at 0% 0%, #F5EBE0 0px, transparent 50%),
+                radial-gradient(at 100% 100%, #EADDCB 0px, transparent 50%);
+            color: #2D241E; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
         }
 
-        .dot-matrix { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-image: radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px); background-size: 30px 30px; z-index: -1; pointer-events: none; }
+        .dot-matrix {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-image: radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: -1;
+            pointer-events: none;
+        }
 
         .header-container { text-align: center; margin-bottom: 30px; z-index: 1; display: flex; flex-direction: column; align-items: center; }
         
-        .logo-box {
-            width: 140px; 
-            height: 140px; 
-            margin-bottom: 20px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-        }
+        .logo-box { width: 100px; height: 100px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; }
+        .logo-box img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; box-shadow: 0 10px 25px rgba(198, 142, 88, 0.25); border: 3px solid #FFFFFF; z-index: 2; }
 
-        .logo-box img {
-            width: 100%; 
-            height: 100%;
-            object-fit: cover;
-            border-radius: 50%;
-            box-shadow: 0 15px 35px rgba(198, 142, 88, 0.25);
-            border: 4px solid #FFFFFF;
-            z-index: 2;
-        }
+        .logo-text { margin: 0; font-size: 2.5em; font-weight: 800; letter-spacing: 2px; background: linear-gradient(to right, #431407, #9A3412); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 2px 8px rgba(154, 52, 18, 0.15)); }
 
-        .logo-text { margin: 0; font-size: 3.5em; font-weight: 800; letter-spacing: 3px; background: linear-gradient(to right, #431407, #9A3412); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 4px 10px rgba(154, 52, 18, 0.15)); }
-        .logo-tagline { background: rgba(255, 255, 255, 0.6); border: 1px solid rgba(0,0,0,0.05); padding: 8px 30px; border-radius: 30px; color: #78716C; font-size: 0.85em; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-top: 10px; }
-
-        .register-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,1); border-radius: 24px; padding: 40px 45px; width: 100%; max-width: 450px; text-align: center; box-shadow: 0 25px 50px rgba(139, 115, 85, 0.15); color: #292524; z-index: 1; }
-
-        .avatar-label { font-size: 0.75em; color: #78716C; font-weight: 800; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 15px; display: block;}
-        .avatar-container { display: flex; justify-content: center; gap: 10px; margin-bottom: 25px; flex-wrap: wrap;}
-        .avatar-option { width: 50px; height: 50px; background: #F5F5F4; border: 1px solid rgba(0,0,0,0.05); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.6em; cursor: pointer; transition: all 0.3s ease; opacity: 0.6; filter: grayscale(100%); }
-        .avatar-option:hover { background: #FFFFFF; opacity: 1; box-shadow: 0 4px 10px rgba(0,0,0,0.05);}
-        input[type="radio"]:checked + .avatar-option { background: #FEF3C7; border-color: #F59E0B; opacity: 1; filter: grayscale(0%); transform: scale(1.1); box-shadow: 0 10px 20px rgba(245, 158, 11, 0.2); }
+        .login-card { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,1); border-radius: 24px; padding: 35px 40px; width: 100%; max-width: 480px; text-align: center; box-shadow: 0 25px 50px rgba(139, 115, 85, 0.15); color: #292524; z-index: 1; }
 
         .input-group { text-align: left; margin-bottom: 20px; }
-        .input-label { display: block; color: #78716C; font-size: 0.75em; font-weight: 800; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;}
-        .input-field { width: 100%; padding: 12px 16px; background: #F5F5F4; border: 1px solid rgba(0,0,0,0.05); border-radius: 8px; color: #292524; font-size: 1.05em; font-weight: 600; outline: none; transition: all 0.3s ease; font-family: 'Inter', sans-serif; }
-        .input-field:focus { box-shadow: 0 0 0 3px rgba(198, 142, 88, 0.3); border-color: #C68E58; }
+        .input-label { display: block; color: #78716C; font-size: 0.75em; font-weight: 800; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+        .input-field { width: 100%; padding: 12px 16px; background: #FAFAF9; border: 1px solid #E7E5E4; border-radius: 8px; color: #292524; font-size: 1em; font-weight: 600; outline: none; transition: all 0.3s ease; font-family: 'Inter', sans-serif; }
+        .input-field:focus { box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.15); border-color: #F59E0B; background: #FFFFFF; }
 
-        .btn-submit { width: 100%; background: linear-gradient(135deg, #D97706, #B45309); color: white; border: none; padding: 14px; font-size: 1.05em; font-weight: 800; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; margin-top: 5px; margin-bottom: 20px; box-shadow: 0 8px 20px rgba(180, 83, 9, 0.25);}
+        /* Contenedor del selector de avatares */
+        .avatar-selection-container { margin-bottom: 25px; text-align: left; }
+        .avatar-label { display: block; color: #78716C; font-size: 0.75em; font-weight: 800; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .avatar-grid { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+        .avatar-btn {
+            background: #F5F5F4; border: 2px solid #E7E5E4; border-radius: 12px; font-size: 1.8em; padding: 10px; cursor: pointer; transition: all 0.2s ease; width: calc(20% - 8px); text-align: center;
+        }
+        .avatar-btn:hover { background: #FFFFFF; border-color: #F59E0B; transform: scale(1.05); }
+        .avatar-btn.active { background: #FFFBEB; border-color: #D97706; box-shadow: 0 4px 10px rgba(217, 119, 6, 0.2); transform: scale(1.1); }
+        
+        #avatar_input { display: none; } /* Input oculto que enviará el avatar seleccionado */
+
+        .btn-submit { width: 100%; background: linear-gradient(135deg, #D97706, #B45309); color: white; border: none; padding: 14px; font-size: 1.05em; font-weight: 800; border-radius: 8px; cursor: pointer; transition: all 0.3s ease; margin-top: 10px; margin-bottom: 25px; box-shadow: 0 8px 20px rgba(180, 83, 9, 0.25); }
         .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 12px 25px rgba(180, 83, 9, 0.35); filter: brightness(1.1); }
 
-        .enlace-login { display: block; color: #78716C; text-decoration: none; font-size: 0.85em; font-weight: 600; transition: color 0.3s; }
-        .enlace-login strong { color: #B45309; font-weight: 800; }
-        .enlace-login:hover strong { color: #D97706; }
+        .enlace-registro { display: block; color: #78716C; text-decoration: none; font-size: 0.85em; font-weight: 600; transition: color 0.3s; }
+        .enlace-registro strong { color: #B45309; font-weight: 800; }
+        .enlace-registro:hover strong { color: #D97706; }
         
-        .error-msg { background: #FEF2F2; color: #DC2626; border: 1px solid #F87171; padding: 12px; border-radius: 8px; margin-bottom: 25px; font-size: 0.9em; font-weight: 600;}
+        .error-msg { background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; padding: 12px; border-radius: 8px; margin-bottom: 25px; font-size: 0.9em; font-weight: 600;}
 
         @media (max-width: 650px) {
-            .logo-text { font-size: 2.5em; }
-            .logo-box { width: 100px; height: 100px; }
-            .register-card { padding: 35px 25px; }
+            .logo-text { font-size: 2em; }
+            .logo-box { width: 80px; height: 80px; }
+            .login-card { padding: 30px 20px; }
+            .avatar-btn { font-size: 1.5em; padding: 8px; }
         }
     </style>
 </head>
@@ -75,13 +83,13 @@
 
     <div class="header-container">
         <div class="logo-box">
-            <img src="{% static 'img/logo1.jpeg' %}" alt="Logo Psicopedia" onerror="this.style.display='none'; this.parentNode.innerHTML='🧠';">
+             <!-- CON TU ENLACE DE CLOUDINARY -->
+            <img src="https://res.cloudinary.com/dqqv392i0/image/upload/v1792256784/cerebro_sq0bnp.jpg" alt="Logo Psicopedia" onerror="this.style.display='none'; this.parentNode.innerHTML='🧠';">
         </div>
-        <h1 class="logo-text">PSICOPEDIA</h1>
-        <div class="logo-tagline">Crea tu perfil de jugador</div>
+        <h1 class="logo-text">ÚNETE A PSICOPEDIA</h1>
     </div>
 
-    <div class="register-card">
+    <div class="login-card">
         {% if messages %}
             {% for message in messages %}
                 <div class="error-msg">{{ message }}</div>
@@ -91,34 +99,51 @@
         <form method="POST" action="{% url 'registro' %}">
             {% csrf_token %}
             
-            <span class="avatar-label">Elige tu Avatar</span>
-            <div class="avatar-container">
-                <label><input type="radio" name="avatar" value="👻" style="display:none;" checked><div class="avatar-option">👻</div></label>
-                <label><input type="radio" name="avatar" value="🧠" style="display:none;"><div class="avatar-option">🧠</div></label>
-                <label><input type="radio" name="avatar" value="🐺" style="display:none;"><div class="avatar-option">🐺</div></label>
-                <label><input type="radio" name="avatar" value="🦉" style="display:none;"><div class="avatar-option">🦉</div></label>
-                <label><input type="radio" name="avatar" value="🚀" style="display:none;"><div class="avatar-option">🚀</div></label>
+            <div class="input-group">
+                <label class="input-label">Elige un Nombre de Usuario</label>
+                <input type="text" name="username" class="input-field" required autocomplete="off" placeholder="Ej: alan_medico">
             </div>
 
-            <div class="input-group">
-                <label class="input-label">Nombre de usuario</label>
-                <input type="text" name="username" class="input-field" required autocomplete="off">
+            <!-- Selector visual de Avatares -->
+            <div class="avatar-selection-container">
+                <label class="avatar-label">Selecciona tu Avatar de Perfil</label>
+                <div class="avatar-grid" id="avatar-container">
+                    <div class="avatar-btn active" data-avatar="👻">👻</div>
+                    <div class="avatar-btn" data-avatar="🧠">🧠</div>
+                    <div class="avatar-btn" data-avatar="🦉">🦉</div>
+                    <div class="avatar-btn" data-avatar="🦊">🦊</div>
+                    <div class="avatar-btn" data-avatar="👩‍⚕️">👩‍⚕️</div>
+                </div>
+                <input type="hidden" name="avatar" id="avatar_input" value="👻">
             </div>
             
             <div class="input-group">
-                <label class="input-label">Contraseña</label>
+                <label class="input-label">Crea una Contraseña</label>
                 <input type="password" name="password" class="input-field" required>
             </div>
 
             <div class="input-group">
-                <label class="input-label">Confirma Contraseña</label>
+                <label class="input-label">Confirma tu Contraseña</label>
                 <input type="password" name="password_conf" class="input-field" required>
             </div>
             
-            <button type="submit" class="btn-submit">Crear Cuenta</button>
+            <button type="submit" class="btn-submit">Crear Cuenta y Entrar</button>
         </form>
         
-        <a href="{% url 'login' %}" class="enlace-login">¿Ya tienes cuenta? <strong>Inicia sesión</strong></a>
+        <a href="{% url 'login' %}" class="enlace-registro">¿Ya tienes cuenta? <strong>Inicia Sesión aquí</strong></a>
     </div>
+
+    <script>
+        const avatarBtns = document.querySelectorAll('.avatar-btn');
+        const avatarInput = document.getElementById('avatar_input');
+
+        avatarBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                avatarBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                avatarInput.value = btn.getAttribute('data-avatar');
+            });
+        });
+    </script>
 </body>
 </html>

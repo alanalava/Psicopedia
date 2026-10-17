@@ -71,7 +71,8 @@
 
     <div class="header-container">
         <div class="logo-box">
-            <img src="{% static 'img/logo1.jpeg' %}" alt="Logo Psicopedia" onerror="this.style.display='none'; this.parentNode.innerHTML='🧠';">
+            <!-- CON TU ENLACE DE CLOUDINARY -->
+            <img src="https://res.cloudinary.com/dqqv392i0/image/upload/v1792256784/cerebro_sq0bnp.jpg" alt="Logo Psicopedia" onerror="this.style.display='none'; this.parentNode.innerHTML='🧠';">
         </div>
         <h1 class="logo-text">PSICOPEDIA</h1>
         <div class="logo-tagline">Ingresa a tu cuenta</div>
@@ -79,7 +80,6 @@
 
     <div class="login-card">
         
-        <!-- ESTO TE AVISARÁ SI EL USUARIO NO EXISTE O HAY ERROR (VERSIÓN LIMPIA) -->
         {% if form.errors %}
             <div class="error-msg">
                 Usuario o contraseña incorrectos.
