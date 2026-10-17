@@ -39,6 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'cloudinary_storage', # <-- PARA CLOUDINARY
+    'cloudinary',
     'nucleo',
 ]
 
@@ -156,3 +158,16 @@ CSRF_TRUSTED_ORIGINS = [
 
 # Para que Django confíe en el proxy HTTPS de Render y no bloquee el login
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+
+# =========================================================
+# CONFIGURACIÓN DE CLOUDINARY (SEGURO CON VARIABLES DE ENTORNO)
+# =========================================================
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET'),
+}
+
+# Esto le dice a Django que guarde los archivos subidos (Media) en Cloudinary
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
