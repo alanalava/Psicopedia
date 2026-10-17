@@ -153,3 +153,6 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
     'https://*.onrender.com', # Permite dominios seguros de Render automáticamente
 ]
+
+# Para que Django confíe en el proxy HTTPS de Render y no bloquee el login
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
