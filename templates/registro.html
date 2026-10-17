@@ -99,12 +99,7 @@
         <form method="POST" action="{% url 'registro' %}">
             {% csrf_token %}
             
-            <div class="input-group">
-                <label class="input-label">Elige un Nombre de Usuario</label>
-                <input type="text" name="username" class="input-field" required autocomplete="off" placeholder="Ej: alan_medico">
-            </div>
-
-            <!-- Selector visual de Avatares -->
+            <!-- AHORA LOS AVATARES ESTÁN ARRIBA -->
             <div class="avatar-selection-container">
                 <label class="avatar-label">Selecciona tu Avatar de Perfil</label>
                 <div class="avatar-grid" id="avatar-container">
@@ -115,6 +110,11 @@
                     <div class="avatar-btn" data-avatar="👩‍⚕️">👩‍⚕️</div>
                 </div>
                 <input type="hidden" name="avatar" id="avatar_input" value="👻">
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">Elige un Nombre de Usuario</label>
+                <input type="text" name="username" class="input-field" required autocomplete="off" placeholder="Ej: alan_medico">
             </div>
             
             <div class="input-group">
