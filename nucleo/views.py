@@ -6,6 +6,8 @@ from django.http import JsonResponse
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.models import User
+from django.contrib import messages
 
 # Modelos
 from .models import Sindrome, Cuestionario, Pregunta, Opcion, ModuloExpediente, CasoExpediente, PerfilJugador
@@ -15,18 +17,36 @@ def vista_registro(request):
         return redirect('escritorio')
         
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            usuario = form.save()
-            # Captura el avatar elegido en el HTML
-            avatar_seleccionado = request.POST.get('avatar_elegido', '👻')
-            PerfilJugador.objects.create(usuario=usuario, avatar=avatar_seleccionado)
+        usuario_nombre = request.POST.get('username')
+        clave = request.POST.get('password')
+        clave_conf = request.POST.get('password_conf')
+        avatar = request.POST.get('avatar', '👻')
+
+        # 1. Validar que las contraseñas sean iguales
+        if clave != clave_conf:
+            messages.error(request, "Las contraseñas no coinciden.")
+            return redirect('registro')
             
-            login(request, usuario)
-            return redirect('escritorio')
-    else:
-        form = UserCreationForm()
-    return render(request, 'registro.html', {'form': form})
+        # 2. Validar que el usuario no exista ya
+        if User.objects.filter(username=usuario_nombre).exists():
+            messages.error(request, "Ese nombre de usuario ya está en uso.")
+            return redirect('registro')
+
+        # 3. Crear el usuario en la base de datos
+        user = User.objects.create_user(username=usuario_nombre, password=clave)
+        
+        # 4. Guardar el avatar que eligió en su perfil (creado por tu signal)
+        user.perfiljugador.avatar = avatar
+        user.perfiljugador.save()
+
+        # 5. INICIAR SESIÓN AUTOMÁTICAMENTE
+        login(request, user)
+        
+        # 6. Redirigir directo al Escritorio sin pasar por el Login
+        return redirect('escritorio')
+
+    # Si entra normal por la URL, le mostramos el formulario
+    return render(request, 'registro.html')
 
 def vista_login(request):
     if request.user.is_authenticated:
@@ -38,6 +58,9 @@ def vista_login(request):
             usuario = form.get_user()
             login(request, usuario)
             return redirect('escritorio')
+        else:
+            # Añadir mensaje de error si el formulario no es válido
+            messages.error(request, "Usuario o contraseña incorrectos. (Recuerda que en producción la base de datos está limpia)")
     else:
         form = AuthenticationForm()
     return render(request, 'login.html', {'form': form})
