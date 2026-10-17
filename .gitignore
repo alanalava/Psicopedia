@@ -3,9 +3,7 @@ venv/
 env/
 ENV/
 
-# Base de datos local
-db.sqlite3
-db.sqlite3-journal
+
 
 # Archivos de caché de Python
 __pycache__/
