@@ -249,3 +249,14 @@ def api_flashcards(request):
         })
         
     return JsonResponse({'mazo': mazo})
+
+
+# ==========================================
+# INTERCEPTOR DE ERRORES CSRF (BOTÓN ATRÁS)
+# ==========================================
+def error_csrf_personalizado(request, reason=""):
+    from django.shortcuts import redirect
+    from django.contrib import messages
+    # En lugar de la pantalla amarilla, mostramos un mensaje en la interfaz
+    messages.error(request, "La página expiró por seguridad. Por favor, intenta nuevamente.")
+    return redirect('login')

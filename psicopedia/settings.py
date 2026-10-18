@@ -171,3 +171,8 @@ CLOUDINARY_STORAGE = {
 
 # Esto le dice a Django que guarde los archivos subidos (Media) en Cloudinary
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+# =========================================================
+# REDIRECCIÓN SILENCIOSA DE ERROR 403 CSRF
+# =========================================================
+CSRF_FAILURE_VIEW = 'nucleo.views.error_csrf_personalizado'
