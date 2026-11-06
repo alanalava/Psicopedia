@@ -8,6 +8,7 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.contrib import messages
+import uuid
 
 # Modelos
 from .models import Sindrome, Cuestionario, Pregunta, Opcion, ModuloExpediente, CasoExpediente, PerfilJugador
@@ -52,16 +53,24 @@ def vista_login(request):
     if request.user.is_authenticated:
         return redirect('escritorio')
         
-    if request.method == 'POST':
-        form = AuthenticationForm(data=request.POST)
-        if form.is_valid():
-            usuario = form.get_user()
-            login(request, usuario)
-            return redirect('escritorio')
-    else:
-        form = AuthenticationForm()
-        
-    return render(request, 'login.html', {'form': form})
+    # ==========================================
+    # AUTO-LOGIN INVISIBLE PARA LA PRESENTACIÓN
+    # ==========================================
+    # 1. Creamos un usuario aleatorio (Ej: profe_a1b2)
+    nombre_invitado = f"invitado_{str(uuid.uuid4())[:4]}"
+    
+    # 2. Lo registramos silenciosamente en la base de datos
+    nuevo_usuario = User.objects.create_user(username=nombre_invitado, password='123')
+    
+    # 3. Le ponemos un avatar genial por defecto
+    nuevo_usuario.perfiljugador.avatar = '👨‍🏫'
+    nuevo_usuario.perfiljugador.save()
+
+    # 4. Le iniciamos la sesión
+    login(request, nuevo_usuario)
+    
+    # 5. Lo pateamos directo al escritorio sin que vea nada
+    return redirect('escritorio')
 
 def vista_logout(request):
     logout(request)
@@ -187,7 +196,6 @@ def obtener_cuestionario_api(request):
     for p in cuestionario.preguntas.all():
         nombre_seccion = p.seccion if p.seccion else "General"
         
-        # AQUÍ ESTÁ EL CAMBIO: Solo extraemos las opciones, YA NO usamos random.shuffle()
         opciones_data = [{"texto": op.texto, "es_correcta": op.es_correcta} for op in p.opciones.all()]
         
         pregunta_data = {"texto": p.texto, "explicacion": p.explicacion, "opciones": opciones_data}
@@ -207,8 +215,6 @@ def obtener_expedientes_api(request):
         data.append({"nombre": modulo.nombre, "descripcion": modulo.descripcion, "casos": casos_list})
     return JsonResponse({"modulos": data})
 
-
-# Agrégalo al final de tu views.py
 @login_required
 def api_ranking(request):
     # Traemos los 10 mejores perfiles ordenados por XP de mayor a menor
@@ -226,9 +232,6 @@ def api_ranking(request):
         })
         
     return JsonResponse({'ranking': ranking})
-
-
-# --- Añadir al final de nucleo/views.py ---
 
 @login_required
 def vista_flashcards(request):
