@@ -262,21 +262,12 @@
                                 <div>{{ concepto.resumen_30s }}</div>
                             </div>
 
-                            {% if concepto.criterios_diagnosticos or concepto.notas_clinicas %}
+                            {% if concepto.notas_clinicas %}
                             <div class="detalles-clinicos">
-                                {% if concepto.criterios_diagnosticos %}
-                                <div class="detalle-item">
-                                    <span class="detalle-label">Criterios Diagnósticos (DSM-5)</span>
-                                    <span class="detalle-valor">{{ concepto.criterios_diagnosticos }}</span>
-                                </div>
-                                {% endif %}
-                                
-                                {% if concepto.notas_clinicas %}
                                 <div class="detalle-item">
                                     <span class="detalle-label">Notas Clínicas</span>
                                     <span class="detalle-valor">{{ concepto.notas_clinicas }}</span>
                                 </div>
-                                {% endif %}
                             </div>
                             {% endif %}
                         </div>
