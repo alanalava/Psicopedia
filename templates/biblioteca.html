@@ -185,21 +185,10 @@
             display: flex; 
             align-items: flex-start; 
             gap: 10px;
-            margin-bottom: 20px;
+            margin-top: auto;
+            margin-bottom: 0;
         }
         .resumen-badge span { font-size: 1.2em; }
-
-        .detalles-clinicos {
-            background: #FAFAF9;
-            border-radius: 12px;
-            padding: 15px;
-            margin-top: auto; 
-            border-left: 4px solid #A8A29E;
-        }
-        .detalle-item { margin-bottom: 12px; }
-        .detalle-item:last-child { margin-bottom: 0; }
-        .detalle-label { font-size: 0.8em; font-weight: 800; color: #78716C; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px;}
-        .detalle-valor { font-size: 0.9em; color: #292524; line-height: 1.5;}
 
         .oculto { display: none !important; }
     </style>
@@ -261,15 +250,6 @@
                                 <span>💡</span> 
                                 <div>{{ concepto.resumen_30s }}</div>
                             </div>
-
-                            {% if concepto.notas_clinicas %}
-                            <div class="detalles-clinicos">
-                                <div class="detalle-item">
-                                    <span class="detalle-label">Notas Clínicas</span>
-                                    <span class="detalle-valor">{{ concepto.notas_clinicas }}</span>
-                                </div>
-                            </div>
-                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>
