@@ -28,7 +28,6 @@
             pointer-events: none;
         }
 
-        /* Barra de navegación Estandarizada */
         .nav-bar { 
             padding: 20px 40px; 
             display: flex; 
@@ -49,7 +48,6 @@
 
         .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
         
-        /* Buscador General */
         .search-container { margin-bottom: 40px; text-align: center; }
         .search-box { 
             width: 100%; 
@@ -68,9 +66,6 @@
         .search-box:focus { border-color: #D97706; box-shadow: 0 10px 25px rgba(217, 119, 6, 0.15); }
         .search-box::placeholder { color: #A8A29E; }
 
-        /* ======================================= */
-        /* VISTA 1: ÍNDICE DE UNIDADES (CATEGORÍAS) */
-        /* ======================================= */
         #vista-indice {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -118,9 +113,6 @@
         .unidad-title { font-size: 1.3em; font-weight: 800; margin: 0; color: #1C1917;}
         .unidad-desc { font-size: 0.9em; color: #78716C; font-weight: 600; margin-top: 10px;}
 
-        /* ======================================= */
-        /* VISTA 2: CONTENIDO DE LA UNIDAD         */
-        /* ======================================= */
         #vista-contenido { display: none; }
 
         .btn-volver {
@@ -153,7 +145,6 @@
 
         .grid-biblioteca { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 30px; }
 
-        /* Tarjetas de Síntomas/Síndromes (Adaptadas a Light Premium) */
         .card-sindrome {
             background: #FFFFFF;
             border-radius: 20px;
@@ -171,7 +162,7 @@
 
         .card-title { font-size: 1.4em; font-weight: 900; color: #1C1917; margin: 0 0 15px 0; border-bottom: 2px solid #FAFAF9; padding-bottom: 10px;}
         .card-subtitle { font-size: 0.85em; color: #B45309; text-transform: uppercase; font-weight: 800; letter-spacing: 1px; margin-bottom: 8px;}
-        .card-text { font-size: 0.95em; color: #44403C; line-height: 1.6; margin-bottom: 20px;}
+        .card-text { font-size: 0.95em; color: #44403C; line-height: 1.6; margin-bottom: 16px;}
         .card-text:last-child { margin-bottom: 0; }
 
         .oculto { display: none !important; }
@@ -189,18 +180,12 @@
             <input type="text" id="buscador" class="search-box" placeholder="🔍 Buscar síndrome, síntoma o categoría..." onkeyup="filtrarBiblioteca()">
         </div>
 
-        <!-- ========================================== -->
-        <!-- VISTA 1: EL ÍNDICE PRINCIPAL DE UNIDADES   -->
-        <!-- ========================================== -->
         <div id="vista-indice">
             {% for categoria, sindromes in biblioteca_agrupada.items %}
                 <div class="card-unidad" data-cat="{{ categoria }}" onclick="abrirUnidad('unidad_{{ forloop.counter }}', '{{ categoria }}')">
-                    
-                    <!-- Icono dinámico con su envoltura -->
                     <div class="unidad-icon-wrapper">
                         <span class="unidad-icon">🧩</span>
                     </div>
-
                     <h2 class="unidad-title">{{ categoria }}</h2>
                     <div class="unidad-desc">{{ sindromes|length }} Conceptos clínicos</div>
                 </div>
@@ -209,12 +194,8 @@
             {% endfor %}
         </div>
 
-        <!-- ========================================== -->
-        <!-- VISTA 2: EL CONTENIDO DE LA UNIDAD ELEGIDA -->
-        <!-- ========================================== -->
         <div id="vista-contenido">
             <button class="btn-volver" onclick="volverAlIndice()">← Volver al Índice de Unidades</button>
-            
             <h2 class="categoria-titulo" id="titulo-unidad-actual">Nombre de la Unidad</h2>
             
             {% for categoria, sindromes in biblioteca_agrupada.items %}
@@ -224,24 +205,24 @@
                         <div class="card-sindrome">
                             <h3 class="card-title">{{ concepto.nombre }}</h3>
                             
+                            {% if concepto.que_es %}
                             <div class="card-subtitle">Definición Clínica</div>
                             <div class="card-text">{{ concepto.que_es }}</div>
+                            {% endif %}
                             
+                            {% if concepto.caracteristicas %}
                             <div class="card-subtitle">Características Clave</div>
                             <div class="card-text">{{ concepto.caracteristicas }}</div>
+                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>
                 </div>
             {% endfor %}
         </div>
-
     </div>
 
     <script>
-        // ----------------------------------------------------
-        // MOTOR DE ICONOS Y COLORES DINÁMICOS
-        // ----------------------------------------------------
         document.addEventListener("DOMContentLoaded", function() {
             const diccIconos = [
                 { palabra: 'conciencia', emoji: '👁️', gradiente: 'linear-gradient(135deg, #8b5cf6, #6366f1)', sombra: 'rgba(139, 92, 246, 0.4)' },
@@ -255,7 +236,6 @@
                 { palabra: 'comportamiento', emoji: '⚡', gradiente: 'linear-gradient(135deg, #f97316, #ea580c)', sombra: 'rgba(249, 115, 22, 0.4)' },
                 { palabra: 'fisiológicas', emoji: '🛌', gradiente: 'linear-gradient(135deg, #64748b, #475569)', sombra: 'rgba(100, 116, 139, 0.4)' },
                 { palabra: 'relación', emoji: '🤝', gradiente: 'linear-gradient(135deg, #14b8a6, #0d9488)', sombra: 'rgba(20, 184, 166, 0.4)' },
-                
                 { palabra: 'psicopático', emoji: '🛑', gradiente: 'linear-gradient(135deg, #dc2626, #991b1b)', sombra: 'rgba(220, 38, 38, 0.4)' },
                 { palabra: 'agudos', emoji: '🌩️', gradiente: 'linear-gradient(135deg, #facc15, #ca8a04)', sombra: 'rgba(202, 138, 4, 0.4)' },
                 { palabra: 'crónicos', emoji: '⏳', gradiente: 'linear-gradient(135deg, #9ca3af, #4b5563)', sombra: 'rgba(75, 85, 99, 0.4)' },
@@ -264,12 +244,10 @@
                 { palabra: 'esquizofrénico', emoji: '🧩', gradiente: 'linear-gradient(135deg, #84cc16, #4d7c0f)', sombra: 'rgba(77, 124, 15, 0.4)' },
                 { palabra: 'hipocondríaco', emoji: '🩺', gradiente: 'linear-gradient(135deg, #38bdf8, #0369a1)', sombra: 'rgba(3, 105, 161, 0.4)' },
                 { palabra: 'asténico', emoji: '🪫', gradiente: 'linear-gradient(135deg, #94a3b8, #334155)', sombra: 'rgba(51, 65, 85, 0.4)' },
-                
                 { palabra: 'síndrome', emoji: '📋', gradiente: 'linear-gradient(135deg, #334155, #0f172a)', sombra: 'rgba(51, 65, 85, 0.4)' }
             ];
 
             let tarjetas = document.querySelectorAll('.card-unidad');
-            
             tarjetas.forEach(tarjeta => {
                 let categoriaNombre = tarjeta.getAttribute('data-cat').toLowerCase();
                 let wrapper = tarjeta.querySelector('.unidad-icon-wrapper');
@@ -294,9 +272,6 @@
             });
         });
 
-        // ----------------------------------------------------
-        // LÓGICA DE NAVEGACIÓN (ÍNDICE vs UNIDAD)
-        // ----------------------------------------------------
         function abrirUnidad(id_unidad, nombre_categoria) {
             document.getElementById('vista-indice').style.display = 'none';
             document.getElementById('vista-contenido').style.display = 'block';
@@ -319,9 +294,6 @@
             filtrarBiblioteca();
         }
 
-        // ----------------------------------------------------
-        // LÓGICA DEL BUSCADOR
-        // ----------------------------------------------------
         function filtrarBiblioteca() {
             let input = document.getElementById('buscador').value.toLowerCase();
             let tarjetas = document.getElementsByClassName('card-sindrome');

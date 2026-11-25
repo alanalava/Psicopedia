@@ -1,6 +1,7 @@
 import json
 import random
 import re
+import unicodedata
 import uuid
 from django.shortcuts import render, redirect
 from django.http import JsonResponse
@@ -15,45 +16,144 @@ from .models import Sindrome, Cuestionario, Pregunta, Opcion, ModuloExpediente, 
 
 
 # ==========================================
-# UTILIDADES PARA DIFICULTAD CLÍNICA
+# SANITIZACIÓN DE DATOS Y DIFICULTAD CLÍNICA
 # ==========================================
+DEFINICIONES_RESPALDO = {
+    "desorientacion alopsiquica en espacio": "Incapacidad para identificar correctamente el lugar físico, entorno o ubicación geográfica en la que se encuentra.",
+    "desorientacion alopsiquica en tiempo": "Pérdida de la noción de la fecha actual, el día de la semana, el mes, el año o el momento del día.",
+    "desorientacion autopsiquica o en persona": "Alteración en el reconocimiento de la propia identidad, datos biográficos básicos o rol personal.",
+}
+
+
+def _normalizar_clave(texto):
+    if not texto:
+        return ""
+    sin_tildes = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode("ascii")
+    return re.sub(r"\s+", " ", sin_tildes).strip().lower()
+
+
+def _es_texto_generico(texto):
+    clave = _normalizar_clave(texto)
+    return (
+        not clave
+        or clave.startswith("fenomeno descrito dentro de esta clasificacion")
+        or clave.startswith("concepto semiologico evaluado en la unidad")
+        or clave.startswith("informacion clinica extraida directamente del banco oficial")
+    )
+
+
+def _es_pregunta_clasificacion(texto):
+    clave = _normalizar_clave(texto)
+    return (
+        "en cual de las siguientes clasificaciones se ubica" in clave
+        or clave.startswith("en cual de las siguientes clasificaciones")
+    )
+
+
 def _ocultar_nombre_en_texto(texto, nombre_concepto):
-    """Evita que el enunciado regale la respuesta mencionando el nombre del concepto."""
     if not texto or not nombre_concepto:
         return texto
-
-    patron_exacto = re.compile(rf'\b{re.escape(nombre_concepto.strip())}(?:s|es)?\b', re.IGNORECASE)
-    texto_limpio = patron_exacto.sub('[...]', texto)
-    return texto_limpio
+    patron = re.compile(rf"\b{re.escape(nombre_concepto.strip())}(?:s|es)?\b", re.IGNORECASE)
+    return patron.sub("[...]", texto)
 
 
-def _obtener_distractores_misma_categoria(categoria, excluir_nombres, cantidad=3):
-    """Obtiene distractores de la misma unidad/categoría para forzar diagnóstico diferencial."""
-    excluir_lower = {n.strip().lower() for n in excluir_nombres if n}
-    distractores = []
+def _limpiar_sindrome(s):
+    """Normaliza cada registro de Biblioteca para corregir filas invertidas o textos de relleno."""
+    nombre = (s.nombre or "").strip()
+    que_es = (s.que_es or "").strip()
+    caracteristicas = (s.caracteristicas or "").strip()
+    resumen = (s.resumen_30s or "").strip()
+    categoria = (s.categoria or "General").strip()
 
-    if categoria:
-        candidatos_cat = list(Sindrome.objects.filter(categoria__iexact=categoria.strip()))
-        random.shuffle(candidatos_cat)
-        for s in candidatos_cat:
-            if s.nombre.strip().lower() not in excluir_lower:
-                distractores.append(s.nombre)
-                excluir_lower.add(s.nombre.strip().lower())
-            if len(distractores) == cantidad:
-                return distractores
+    # Descartar encabezados de unidad o preguntas de clasificación guardadas como concepto
+    if _normalizar_clave(nombre).startswith("psicopatologia de") or _es_pregunta_clasificacion(que_es):
+        return None
 
-    # Respaldo solo si la unidad tiene menos de 4 conceptos en total
-    candidatos_global = list(Sindrome.objects.order_by('?'))
-    for s in candidatos_global:
-        if s.nombre.strip().lower() not in excluir_lower:
-            distractores.append(s.nombre)
-            excluir_lower.add(s.nombre.strip().lower())
-        if len(distractores) == cantidad:
-            break
+    # Corregir registros invertidos:
+    # nombre = "Estado de ánimo equilibrado..." | que_es = "¿Cuál de los siguientes enunciados corresponde al término Eutimia?"
+    match_inv = re.match(
+        r"^¿?\s*Cu[aá]l de los siguientes enunciados corresponde al t[eé]rmino\s+(.+?)\s*\??$",
+        que_es,
+        re.IGNORECASE,
+    )
+    if match_inv:
+        termino_real = match_inv.group(1).strip(" .?¿")
+        definicion_real = nombre
+        nombre = termino_real
+        que_es = definicion_real
 
-    return distractores
+    # Si aún queda una pregunta en que_es, intentar rescatar desde resumen_30s o descartar
+    if que_es.startswith("¿"):
+        if resumen and not resumen.startswith("¿") and not _es_texto_generico(resumen):
+            que_es = resumen
+        else:
+            return None
+
+    # Reemplazar placeholder genérico por definición clínica real si aplica
+    if _es_texto_generico(que_es):
+        respaldo = DEFINICIONES_RESPALDO.get(_normalizar_clave(nombre))
+        if respaldo:
+            que_es = respaldo
+        elif resumen and not resumen.startswith("¿") and not _es_texto_generico(resumen):
+            que_es = resumen
+        else:
+            que_es = ""
+
+    if _es_texto_generico(caracteristicas) or caracteristicas.startswith("¿"):
+        caracteristicas = ""
+
+    if _es_texto_generico(resumen) or resumen.startswith("¿"):
+        resumen = que_es
+
+    # Evitar que una definición larga quede como nombre de opción
+    es_nombre_corto = len(nombre) <= 75 and not nombre.startswith("¿")
+
+    return {
+        "id": s.id,
+        "nombre": nombre,
+        "que_es": que_es,
+        "caracteristicas": caracteristicas,
+        "resumen_30s": resumen,
+        "categoria": categoria,
+        "cat_norm": _normalizar_clave(categoria),
+        "es_nombre_corto": es_nombre_corto,
+    }
 
 
+def _obtener_sindromes_limpios():
+    limpios = []
+    vistos = set()
+    for s in Sindrome.objects.all().order_by("categoria", "nombre"):
+        item = _limpiar_sindrome(s)
+        if not item:
+            continue
+        clave = (item["cat_norm"], _normalizar_clave(item["nombre"]))
+        if clave in vistos:
+            continue
+        vistos.add(clave)
+        limpios.append(item)
+    return limpios
+
+
+def _obtener_distractores_misma_categoria(categoria, excluir_nombres, cantidad=3, permitir_sindromes=True):
+    """Obtiene distractores exclusivamente de la misma unidad/categoría (sin rellenar con otras unidades)."""
+    cat_norm = _normalizar_clave(categoria)
+    excluir_norm = {_normalizar_clave(n) for n in excluir_nombres if n}
+    candidatos = [
+        item["nombre"]
+        for item in _obtener_sindromes_limpios()
+        if item["cat_norm"] == cat_norm
+        and item["es_nombre_corto"]
+        and _normalizar_clave(item["nombre"]) not in excluir_norm
+        and (permitir_sindromes or "sindrome" not in _normalizar_clave(item["nombre"]))
+    ]
+    random.shuffle(candidatos)
+    return candidatos[:cantidad]
+
+
+# ==========================================
+# VISTAS DE AUTENTICACIÓN Y NAVEGACIÓN
+# ==========================================
 def vista_registro(request):
     if request.user.is_authenticated:
         return redirect('escritorio')
@@ -64,30 +164,21 @@ def vista_registro(request):
         clave_conf = request.POST.get('password_conf')
         avatar = request.POST.get('avatar', '👻')
 
-        # 1. Validar que las contraseñas sean iguales
         if clave != clave_conf:
             messages.error(request, "Las contraseñas no coinciden.")
             return redirect('registro')
             
-        # 2. Validar que el usuario no exista ya
         if User.objects.filter(username=usuario_nombre).exists():
             messages.error(request, "Ese nombre de usuario ya está en uso.")
             return redirect('registro')
 
-        # 3. Crear el usuario en la base de datos
         user = User.objects.create_user(username=usuario_nombre, password=clave)
-        
-        # 4. Guardar el avatar que eligió en su perfil (creado por tu signal)
         user.perfiljugador.avatar = avatar
         user.perfiljugador.save()
 
-        # 5. INICIAR SESIÓN AUTOMÁTICAMENTE
         login(request, user)
-        
-        # 6. Redirigir directo al Escritorio sin pasar por el Login
         return redirect('escritorio')
 
-    # Si entra normal por la URL, le mostramos el formulario
     return render(request, 'registro.html')
 
 
@@ -95,9 +186,6 @@ def vista_login(request):
     if request.user.is_authenticated:
         return redirect('escritorio')
         
-    # ==========================================
-    # AUTO-LOGIN INVISIBLE PARA LA PRESENTACIÓN
-    # ==========================================
     nombre_invitado = f"invitado_{str(uuid.uuid4())[:4]}"
     nuevo_usuario = User.objects.create_user(username=nombre_invitado, password='123')
     nuevo_usuario.perfiljugador.avatar = '👨‍🏫'
@@ -121,24 +209,76 @@ def vista_inicio(request):
     return render(request, 'cuestionario.html')
 
 
+# ==========================================
+# BIBLIOTECA
+# ==========================================
 @login_required
 def vista_biblioteca(request):
-    todos_los_sindromes = Sindrome.objects.all().order_by('categoria', 'nombre')
     biblioteca_agrupada = {}
-    for s in todos_los_sindromes:
-        cat = s.categoria if s.categoria else "General"
-        if cat not in biblioteca_agrupada:
-            biblioteca_agrupada[cat] = []
-        biblioteca_agrupada[cat].append(s)
+    for item in _obtener_sindromes_limpios():
+        if not item["que_es"] and not item["caracteristicas"]:
+            continue
+        cat = item["categoria"] or "General"
+        biblioteca_agrupada.setdefault(cat, []).append(item)
         
     return render(request, 'biblioteca.html', {'biblioteca_agrupada': biblioteca_agrupada})
 
 
+# ==========================================
+# EXPEDIENTES CLÍNICOS
+# ==========================================
 @login_required
 def vista_expedientes(request):
     return render(request, 'expedientes.html')
 
 
+@login_required
+def obtener_expedientes_api(request):
+    mapa_definiciones = {
+        _normalizar_clave(item["nombre"]): item["que_es"]
+        for item in _obtener_sindromes_limpios()
+        if item["que_es"]
+    }
+
+    modulos = ModuloExpediente.objects.all()
+    data = []
+    for modulo in modulos:
+        casos_list = []
+        for caso in modulo.casos.all():
+            seccion = caso.seccion if caso.seccion else "General"
+            desc = (caso.descripcion_caso or "").strip()
+
+            # Reemplazar texto genérico repetido por el concepto clínico real
+            if _es_texto_generico(desc):
+                clave_resp = _normalizar_clave(caso.respuesta_correcta)
+                desc = mapa_definiciones.get(clave_resp) or DEFINICIONES_RESPALDO.get(clave_resp) or desc
+
+            desc_segura = _ocultar_nombre_en_texto(desc, caso.respuesta_correcta)
+            distractores = _obtener_distractores_misma_categoria(
+                seccion,
+                [caso.respuesta_correcta],
+                cantidad=3,
+                permitir_sindromes=("sindrome" in _normalizar_clave(seccion)),
+            )
+            opciones = distractores + [caso.respuesta_correcta]
+            random.shuffle(opciones)
+
+            casos_list.append({
+                "seccion": seccion,
+                "descripcion": desc_segura,
+                "pregunta": caso.pregunta,
+                "respuesta_correcta": caso.respuesta_correcta,
+                "opciones": opciones,
+            })
+
+        random.shuffle(casos_list)
+        data.append({"nombre": modulo.nombre, "descripcion": modulo.descripcion, "casos": casos_list})
+    return JsonResponse({"modulos": data})
+
+
+# ==========================================
+# MINIJUEGO: RACHA PSICOPÉDICA
+# ==========================================
 @login_required
 def vista_minijuego(request):
     perfil, created = PerfilJugador.objects.get_or_create(usuario=request.user)
@@ -147,32 +287,34 @@ def vista_minijuego(request):
 
 @login_required
 def api_reto_minijuego(request):
-    todos = list(Sindrome.objects.all())
-    if len(todos) < 4:
-        return JsonResponse({'error': 'No hay suficientes datos en la biblioteca.'})
+    candidatos = [
+        item for item in _obtener_sindromes_limpios()
+        if item["es_nombre_corto"] and item["que_es"] and not _es_texto_generico(item["que_es"])
+    ]
+    if len(candidatos) < 4:
+        return JsonResponse({'error': 'No hay suficientes datos válidos en la biblioteca.'})
     
-    sindrome_correcto = random.choice(todos)
+    # Elegir solo conceptos de categorías que tengan al menos 3 conceptos válidos
+    por_cat = {}
+    for item in candidatos:
+        por_cat.setdefault(item["cat_norm"], []).append(item)
+    cats_validas = [c for c, lista in por_cat.items() if len(lista) >= 3]
+    cat_elegida = random.choice(cats_validas) if cats_validas else None
+    pool = por_cat[cat_elegida] if cat_elegida else candidatos
+
+    correcto = random.choice(pool)
     distractores = _obtener_distractores_misma_categoria(
-        sindrome_correcto.categoria,
-        [sindrome_correcto.nombre],
-        cantidad=3
+        correcto["categoria"],
+        [correcto["nombre"]],
+        cantidad=3,
+        permitir_sindromes=("sindrome" in correcto["cat_norm"]),
     )
     
-    opciones = distractores + [sindrome_correcto.nombre]
+    opciones = distractores + [correcto["nombre"]]
     random.shuffle(opciones)
     
-    fuentes_enunciado = [
-        t for t in [sindrome_correcto.caracteristicas, sindrome_correcto.que_es, sindrome_correcto.resumen_30s]
-        if t and t.strip()
-    ]
-    pregunta_cruda = random.choice(fuentes_enunciado)
-    pregunta_texto = _ocultar_nombre_en_texto(pregunta_cruda, sindrome_correcto.nombre)
-    
-    return JsonResponse({
-        'id_reto': sindrome_correcto.id,
-        'pregunta': pregunta_texto,
-        'opciones': opciones
-    })
+    pregunta_texto = _ocultar_nombre_en_texto(correcto["que_es"], correcto["nombre"])
+    return JsonResponse({'id_reto': correcto["id"], 'pregunta': pregunta_texto, 'opciones': opciones})
 
 
 @login_required
@@ -180,9 +322,11 @@ def api_responder_minijuego(request):
     if request.method == 'POST':
         data = json.loads(request.body)
         sindrome = Sindrome.objects.get(id=data.get('id_reto'))
+        limpio = _limpiar_sindrome(sindrome)
+        nombre_correcto = limpio["nombre"] if limpio else sindrome.nombre
         perfil = PerfilJugador.objects.get(usuario=request.user)
         
-        es_correcta = (sindrome.nombre == data.get('respuesta'))
+        es_correcta = (_normalizar_clave(nombre_correcto) == _normalizar_clave(data.get('respuesta', '')))
         if es_correcta:
             perfil.racha_actual += 1
             multiplicador = 5 if perfil.racha_actual >= 5 else (3 if perfil.racha_actual >= 3 else (2 if perfil.racha_actual >= 2 else 1))
@@ -202,10 +346,13 @@ def api_responder_minijuego(request):
             'racha_actual': perfil.racha_actual, 
             'mejor_racha': perfil.mejor_racha, 
             'mensaje': mensaje, 
-            'respuesta_correcta': sindrome.nombre
+            'respuesta_correcta': nombre_correcto
         })
 
 
+# ==========================================
+# MINIJUEGO: PAREJAS CLÍNICAS (MEMORIA)
+# ==========================================
 @login_required
 def vista_memoria(request):
     perfil, created = PerfilJugador.objects.get_or_create(usuario=request.user)
@@ -214,13 +361,14 @@ def vista_memoria(request):
 
 @login_required
 def api_cartas_memoria(request):
-    todos_sindromes = list(Sindrome.objects.all())
+    candidatos = [
+        item for item in _obtener_sindromes_limpios()
+        if item["es_nombre_corto"] and item["que_es"] and not _es_texto_generico(item["que_es"])
+    ]
     por_categoria = {}
-    for s in todos_sindromes:
-        cat = s.categoria if s.categoria else "General"
-        por_categoria.setdefault(cat, []).append(s)
+    for item in candidatos:
+        por_categoria.setdefault(item["cat_norm"], []).append(item)
 
-    # Seleccionar 4 conceptos de la MISMA unidad clínica para exigir precisión conceptual
     categorias_validas = [cat for cat, lista in por_categoria.items() if len(lista) >= 4]
     if categorias_validas:
         cat_elegida = random.choice(categorias_validas)
@@ -228,15 +376,15 @@ def api_cartas_memoria(request):
         random.shuffle(pool)
         seleccion = pool[:4]
     else:
-        random.shuffle(todos_sindromes)
-        seleccion = todos_sindromes[:4]
+        random.shuffle(candidatos)
+        seleccion = candidatos[:4]
             
     cartas = []
-    for s in seleccion:
-        texto_limpio = re.sub(r'\s*\(.*?\)', '', s.resumen_30s).strip()
-        texto_limpio = _ocultar_nombre_en_texto(texto_limpio, s.nombre)
-        cartas.append({'id_match': s.id, 'texto': s.nombre})
-        cartas.append({'id_match': s.id, 'texto': texto_limpio})
+    for item in seleccion:
+        texto_limpio = re.sub(r'\s*\(.*?\)', '', item["que_es"]).strip()
+        texto_limpio = _ocultar_nombre_en_texto(texto_limpio, item["nombre"])
+        cartas.append({'id_match': item["id"], 'texto': item["nombre"]})
+        cartas.append({'id_match': item["id"], 'texto': texto_limpio})
         
     random.shuffle(cartas)
     return JsonResponse({'cartas': cartas})
@@ -251,35 +399,50 @@ def api_victoria_memoria(request):
         return JsonResponse({'xp_total': perfil.xp, 'mensaje': '¡+50 XP ganados!'})
 
 
+# ==========================================
+# SIMULADOR / CUESTIONARIO (SOLO TEÓRICO)
+# ==========================================
 @login_required
 def obtener_cuestionario_api(request):
     cuestionario = Cuestionario.objects.first()
     if not cuestionario:
         return JsonResponse({"error": "No hay cuestionarios disponibles."})
 
-    nombres_biblioteca = {n.strip().lower() for n in Sindrome.objects.values_list('nombre', flat=True)}
+    sindromes_limpios = _obtener_sindromes_limpios()
+    nombres_biblioteca = {_normalizar_clave(item["nombre"]) for item in sindromes_limpios}
     secciones_agrupadas = {}
 
     for p in cuestionario.preguntas.all():
+        # Eliminar preguntas de clasificación ("¿En cuál de las siguientes clasificaciones se ubica...?")
+        if _es_pregunta_clasificacion(p.texto):
+            continue
+
         nombre_seccion = p.seccion if p.seccion else "General"
+        es_modulo_sindrome = "sindrome" in _normalizar_clave(nombre_seccion)
         opciones_db = list(p.opciones.all())
         opcion_correcta = next((op for op in opciones_db if op.es_correcta), None)
 
-        # Si las opciones son nombres de conceptos clínicos, forzamos distractores de la misma unidad
-        if (
-            opcion_correcta
-            and opcion_correcta.texto.strip().lower() in nombres_biblioteca
-        ):
+        if opcion_correcta and _normalizar_clave(opcion_correcta.texto) in nombres_biblioteca:
             distractores = _obtener_distractores_misma_categoria(
                 nombre_seccion,
                 [opcion_correcta.texto],
-                cantidad=3
+                cantidad=3,
+                permitir_sindromes=es_modulo_sindrome,
             )
             opciones_data = [{"texto": opcion_correcta.texto, "es_correcta": True}] + [
                 {"texto": d, "es_correcta": False} for d in distractores
             ]
         else:
-            opciones_data = [{"texto": op.texto, "es_correcta": op.es_correcta} for op in opciones_db]
+            opciones_data = []
+            for op in opciones_db:
+                # En módulos de síntomas/procesos, quitar distractores que digan "Síndrome..."
+                if (
+                    not op.es_correcta
+                    and not es_modulo_sindrome
+                    and "sindrome" in _normalizar_clave(op.texto)
+                ):
+                    continue
+                opciones_data.append({"texto": op.texto, "es_correcta": op.es_correcta})
 
         random.shuffle(opciones_data)
 
@@ -290,48 +453,21 @@ def obtener_cuestionario_api(request):
         pregunta_data = {
             "texto": texto_pregunta,
             "explicacion": p.explicacion,
-            "opciones": opciones_data
+            "opciones": opciones_data,
         }
         secciones_agrupadas.setdefault(nombre_seccion, []).append(pregunta_data)
 
     secciones_data = []
     for nombre, preguntas_lista in secciones_agrupadas.items():
         random.shuffle(preguntas_lista)
-        secciones_data.append({"nombre": nombre, "preguntas": preguntas_lista})
+        secciones_data.append({"nombre": nombre, "preguntas": preguntas_lista[:10]})
 
     return JsonResponse({"secciones": secciones_data})
 
 
-@login_required
-def obtener_expedientes_api(request):
-    modulos = ModuloExpediente.objects.all()
-    data = []
-    for modulo in modulos:
-        casos_list = []
-        for caso in modulo.casos.all():
-            seccion = caso.seccion if caso.seccion else "General"
-            descripcion_segura = _ocultar_nombre_en_texto(caso.descripcion_caso, caso.respuesta_correcta)
-            distractores = _obtener_distractores_misma_categoria(
-                seccion,
-                [caso.respuesta_correcta],
-                cantidad=3
-            )
-            opciones = distractores + [caso.respuesta_correcta]
-            random.shuffle(opciones)
-
-            casos_list.append({
-                "seccion": seccion,
-                "descripcion": descripcion_segura,
-                "pregunta": caso.pregunta,
-                "respuesta_correcta": caso.respuesta_correcta,
-                "opciones": opciones,
-            })
-
-        random.shuffle(casos_list)
-        data.append({"nombre": modulo.nombre, "descripcion": modulo.descripcion, "casos": casos_list})
-    return JsonResponse({"modulos": data})
-
-
+# ==========================================
+# RANKING Y TARJETAS DE ESTUDIO (FLASHCARDS)
+# ==========================================
 @login_required
 def api_ranking(request):
     top_jugadores = PerfilJugador.objects.order_by('-xp')[:10]
@@ -357,14 +493,31 @@ def vista_flashcards(request):
 
 @login_required
 def api_flashcards(request):
-    sindromes = list(Sindrome.objects.order_by('?')[:20])
+    candidatos = [
+        item for item in _obtener_sindromes_limpios()
+        if item["es_nombre_corto"] and item["que_es"] and not _es_texto_generico(item["que_es"])
+    ]
+    por_categoria = {}
+    for item in candidatos:
+        por_categoria.setdefault(item["cat_norm"], []).append(item)
+
+    # Seleccionar una sola unidad con al menos 4 conceptos para que los distractores pertenezcan al mismo proceso
+    categorias_validas = [cat for cat, lista in por_categoria.items() if len(lista) >= 4]
+    if categorias_validas:
+        cat_elegida = random.choice(categorias_validas)
+        pool = por_categoria[cat_elegida][:]
+        random.shuffle(pool)
+        seleccion = pool[:10]
+    else:
+        random.shuffle(candidatos)
+        seleccion = candidatos[:10]
     
     mazo = []
-    for s in sindromes:
+    for item in seleccion:
         mazo.append({
-            'frente': s.nombre,
-            'dorso': s.resumen_30s,
-            'categoria': s.categoria if s.categoria else 'General'
+            'frente': item["nombre"],
+            'dorso': item["que_es"],
+            'categoria': item["categoria"],
         })
         
     return JsonResponse({'mazo': mazo})
