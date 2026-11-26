@@ -26,15 +26,14 @@ DEFINICIONES_RESPALDO = {
     "doble orientacion": "Coexistencia de una orientación correcta respecto a la realidad con referencias delirantes o erróneas.",
 }
 
-# Términos mal clasificados en unidades específicas que deben excluirse como distractores
-EXCLUSIONES_POR_CATEGORIA = {
-    "psicopatologia de las funciones de relacion": {"autoscopia", "autoscopia externa", "autoscopia interna"},
+EXCLUSIONES_POR_UNIDAD = {
+    "funciones de relacion": {"autoscopia", "autoscopia externa", "autoscopia interna"},
 }
 
 _CACHE_BIBLIOTECA = {
     "firma": None,
     "items": [],
-    "por_categoria": {},
+    "por_unidad": {},
     "mapa_definiciones": {},
 }
 
@@ -46,13 +45,34 @@ def _normalizar_clave(texto):
     return re.sub(r"\s+", " ", sin_tildes).strip().lower()
 
 
-def _es_texto_generico(texto):
+def _quitar_prefijo_opcion(texto):
+    """Elimina prefijos como 'A) ', 'B) ', 'C) ', 'D) ' guardados en la base de datos."""
+    if not texto:
+        return ""
+    return re.sub(r"^\s*[A-Da-d][\)\.\-:]\s*", "", texto).strip()
+
+
+def _normalizar_unidad(texto):
+    """Unifica nombres como 'Unidad: Orientación' y 'Psicopatología De La Orientación'."""
+    clave = _normalizar_clave(texto)
+    clave = re.sub(r"^(unidad\s*\d*\s*[:\-]?\s*)", "", clave)
+    clave = re.sub(r"^psicopatologia\s+(de\s+las|de\s+los|de\s+la|del|de)\s+", "", clave)
+    return clave.strip()
+
+
+def _es_texto_generico_o_con_respuesta(texto):
+    """Detecta textos de relleno o frases que revelan la respuesta/literal del banco."""
     clave = _normalizar_clave(texto)
     return (
         not clave
         or clave.startswith("fenomeno descrito dentro de esta clasificacion")
         or clave.startswith("concepto semiologico evaluado en la unidad")
         or clave.startswith("informacion clinica extraida directamente del banco oficial")
+        or "banco oficial" in clave
+        or "opcion correcta" in clave
+        or "respuesta correcta" in clave
+        or "la respuesta es" in clave
+        or bool(re.search(r"\b(literal|inciso|opcion)\s+[a-d]\b", clave))
     )
 
 
@@ -64,34 +84,35 @@ def _es_pregunta_clasificacion(texto):
     )
 
 
-def _es_termino_excluido_en_categoria(cat_norm, nombre_texto):
-    excluidos = EXCLUSIONES_POR_CATEGORIA.get(cat_norm)
+def _es_termino_excluido_en_unidad(unidad_norm, nombre_texto):
+    excluidos = EXCLUSIONES_POR_UNIDAD.get(unidad_norm)
     if not excluidos:
         return False
-    nombre_norm = _normalizar_clave(nombre_texto)
+    nombre_norm = _normalizar_clave(_quitar_prefijo_opcion(nombre_texto))
     return any(ex in nombre_norm for ex in excluidos)
 
 
 def _ocultar_nombre_en_texto(texto, nombre_concepto):
     if not texto or not nombre_concepto:
         return texto
-    patron = re.compile(rf"\b{re.escape(nombre_concepto.strip())}(?:s|es)?\b", re.IGNORECASE)
+    nombre_limpio = _quitar_prefijo_opcion(nombre_concepto)
+    patron = re.compile(rf"\b{re.escape(nombre_limpio)}(?:s|es)?\b", re.IGNORECASE)
     return patron.sub("[...]", texto)
 
 
 def _limpiar_sindrome(s):
     """Normaliza cada registro de Biblioteca para corregir filas invertidas o textos de relleno."""
-    nombre = (s.nombre or "").strip()
+    nombre = _quitar_prefijo_opcion((s.nombre or "").strip())
     que_es = (s.que_es or "").strip()
     caracteristicas = (s.caracteristicas or "").strip()
     resumen = (s.resumen_30s or "").strip()
     categoria = (s.categoria or "General").strip()
-    cat_norm = _normalizar_clave(categoria)
+    unidad_norm = _normalizar_unidad(categoria)
 
     if (
         _normalizar_clave(nombre).startswith("psicopatologia de")
         or _es_pregunta_clasificacion(que_es)
-        or _es_termino_excluido_en_categoria(cat_norm, nombre)
+        or _es_termino_excluido_en_unidad(unidad_norm, nombre)
     ):
         return None
 
@@ -107,24 +128,24 @@ def _limpiar_sindrome(s):
         que_es = definicion_real
 
     if que_es.startswith("¿"):
-        if resumen and not resumen.startswith("¿") and not _es_texto_generico(resumen):
+        if resumen and not resumen.startswith("¿") and not _es_texto_generico_o_con_respuesta(resumen):
             que_es = resumen
         else:
             return None
 
-    if _es_texto_generico(que_es):
+    if _es_texto_generico_o_con_respuesta(que_es):
         respaldo = DEFINICIONES_RESPALDO.get(_normalizar_clave(nombre))
         if respaldo:
             que_es = respaldo
-        elif resumen and not resumen.startswith("¿") and not _es_texto_generico(resumen):
+        elif resumen and not resumen.startswith("¿") and not _es_texto_generico_o_con_respuesta(resumen):
             que_es = resumen
         else:
             que_es = ""
 
-    if _es_texto_generico(caracteristicas) or caracteristicas.startswith("¿"):
+    if _es_texto_generico_o_con_respuesta(caracteristicas) or caracteristicas.startswith("¿"):
         caracteristicas = ""
 
-    if _es_texto_generico(resumen) or resumen.startswith("¿"):
+    if _es_texto_generico_o_con_respuesta(resumen) or resumen.startswith("¿"):
         resumen = que_es
 
     es_nombre_corto = len(nombre) <= 75 and not nombre.startswith("¿")
@@ -136,7 +157,7 @@ def _limpiar_sindrome(s):
         "caracteristicas": caracteristicas,
         "resumen_30s": resumen,
         "categoria": categoria,
-        "cat_norm": cat_norm,
+        "unidad_norm": unidad_norm,
         "es_nombre_corto": es_nombre_corto,
     }
 
@@ -151,7 +172,7 @@ def _obtener_indice_biblioteca():
         return _CACHE_BIBLIOTECA
 
     limpios = []
-    por_categoria = {}
+    por_unidad = {}
     mapa_definiciones = dict(DEFINICIONES_RESPALDO)
     vistos = set()
 
@@ -160,37 +181,37 @@ def _obtener_indice_biblioteca():
         if not item:
             continue
         clave_nombre = _normalizar_clave(item["nombre"])
-        clave = (item["cat_norm"], clave_nombre)
+        clave = (item["unidad_norm"], clave_nombre)
         if clave in vistos:
             continue
         vistos.add(clave)
         limpios.append(item)
-        por_categoria.setdefault(item["cat_norm"], []).append(item)
-        if item["que_es"] and not _es_texto_generico(item["que_es"]):
+        por_unidad.setdefault(item["unidad_norm"], []).append(item)
+        if item["que_es"] and not _es_texto_generico_o_con_respuesta(item["que_es"]):
             mapa_definiciones[clave_nombre] = item["que_es"]
 
     _CACHE_BIBLIOTECA["firma"] = firma
     _CACHE_BIBLIOTECA["items"] = limpios
-    _CACHE_BIBLIOTECA["por_categoria"] = por_categoria
+    _CACHE_BIBLIOTECA["por_unidad"] = por_unidad
     _CACHE_BIBLIOTECA["mapa_definiciones"] = mapa_definiciones
     return _CACHE_BIBLIOTECA
 
 
-def _obtener_distractores_misma_categoria(
+def _obtener_distractores_misma_unidad(
     categoria, excluir_nombres, cantidad=3, permitir_sindromes=True, indice=None
 ):
-    """Obtiene distractores exclusivamente de la misma unidad/categoría en O(1)."""
+    """Obtiene distractores exclusivamente de la misma unidad clínica en O(1)."""
     if indice is None:
         indice = _obtener_indice_biblioteca()
 
-    cat_norm = _normalizar_clave(categoria)
-    excluir_norm = {_normalizar_clave(n) for n in excluir_nombres if n}
+    unidad_norm = _normalizar_unidad(categoria)
+    excluir_norm = {_normalizar_clave(_quitar_prefijo_opcion(n)) for n in excluir_nombres if n}
     candidatos = [
         item["nombre"]
-        for item in indice["por_categoria"].get(cat_norm, [])
+        for item in indice["por_unidad"].get(unidad_norm, [])
         if item["es_nombre_corto"]
         and _normalizar_clave(item["nombre"]) not in excluir_norm
-        and not _es_termino_excluido_en_categoria(cat_norm, item["nombre"])
+        and not _es_termino_excluido_en_unidad(unidad_norm, item["nombre"])
         and (permitir_sindromes or "sindrome" not in _normalizar_clave(item["nombre"]))
     ]
     random.shuffle(candidatos)
@@ -291,30 +312,31 @@ def obtener_expedientes_api(request):
         for caso in modulo.casos.all():
             seccion = caso.seccion if caso.seccion else "General"
             desc = (caso.descripcion_caso or "").strip()
+            resp_limpia = _quitar_prefijo_opcion(caso.respuesta_correcta)
 
-            if _es_texto_generico(desc):
-                clave_resp = _normalizar_clave(caso.respuesta_correcta)
+            if _es_texto_generico_o_con_respuesta(desc):
+                clave_resp = _normalizar_clave(resp_limpia)
                 desc = mapa_definiciones.get(clave_resp, "")
 
-            if _es_texto_generico(desc):
+            if _es_texto_generico_o_con_respuesta(desc):
                 continue
 
-            desc_segura = _ocultar_nombre_en_texto(desc, caso.respuesta_correcta)
-            distractores = _obtener_distractores_misma_categoria(
+            desc_segura = _ocultar_nombre_en_texto(desc, resp_limpia)
+            distractores = _obtener_distractores_misma_unidad(
                 seccion,
-                [caso.respuesta_correcta],
+                [resp_limpia],
                 cantidad=3,
-                permitir_sindromes=("sindrome" in _normalizar_clave(seccion)),
+                permitir_sindromes=("sindrome" in _normalizar_unidad(seccion)),
                 indice=indice,
             )
-            opciones = distractores + [caso.respuesta_correcta]
+            opciones = distractores + [resp_limpia]
             random.shuffle(opciones)
 
             casos_list.append({
                 "seccion": seccion,
                 "descripcion": desc_segura,
                 "pregunta": caso.pregunta,
-                "respuesta_correcta": caso.respuesta_correcta,
+                "respuesta_correcta": resp_limpia,
                 "opciones": opciones,
             })
 
@@ -337,24 +359,24 @@ def api_reto_minijuego(request):
     indice = _obtener_indice_biblioteca()
     candidatos = [
         item for item in indice["items"]
-        if item["es_nombre_corto"] and item["que_es"] and not _es_texto_generico(item["que_es"])
+        if item["es_nombre_corto"] and item["que_es"] and not _es_texto_generico_o_con_respuesta(item["que_es"])
     ]
     if len(candidatos) < 3:
         return JsonResponse({'error': 'No hay suficientes datos válidos en la biblioteca.'})
     
-    por_cat = {}
+    por_unidad = {}
     for item in candidatos:
-        por_cat.setdefault(item["cat_norm"], []).append(item)
-    cats_validas = [c for c, lista in por_cat.items() if len(lista) >= 3]
-    cat_elegida = random.choice(cats_validas) if cats_validas else None
-    pool = por_cat[cat_elegida] if cat_elegida else candidatos
+        por_unidad.setdefault(item["unidad_norm"], []).append(item)
+    unidades_validas = [u for u, lista in por_unidad.items() if len(lista) >= 3]
+    unidad_elegida = random.choice(unidades_validas) if unidades_validas else None
+    pool = por_unidad[unidad_elegida] if unidad_elegida else candidatos
 
     correcto = random.choice(pool)
-    distractores = _obtener_distractores_misma_categoria(
+    distractores = _obtener_distractores_misma_unidad(
         correcto["categoria"],
         [correcto["nombre"]],
         cantidad=3,
-        permitir_sindromes=("sindrome" in correcto["cat_norm"]),
+        permitir_sindromes=("sindrome" in correcto["unidad_norm"]),
         indice=indice,
     )
     
@@ -371,10 +393,13 @@ def api_responder_minijuego(request):
         data = json.loads(request.body)
         sindrome = Sindrome.objects.get(id=data.get('id_reto'))
         limpio = _limpiar_sindrome(sindrome)
-        nombre_correcto = limpio["nombre"] if limpio else sindrome.nombre
+        nombre_correcto = limpio["nombre"] if limpio else _quitar_prefijo_opcion(sindrome.nombre)
         perfil = PerfilJugador.objects.get(usuario=request.user)
         
-        es_correcta = (_normalizar_clave(nombre_correcto) == _normalizar_clave(data.get('respuesta', '')))
+        es_correcta = (
+            _normalizar_clave(nombre_correcto)
+            == _normalizar_clave(_quitar_prefijo_opcion(data.get('respuesta', '')))
+        )
         if es_correcta:
             perfil.racha_actual += 1
             multiplicador = 5 if perfil.racha_actual >= 5 else (3 if perfil.racha_actual >= 3 else (2 if perfil.racha_actual >= 2 else 1))
@@ -412,16 +437,16 @@ def api_cartas_memoria(request):
     indice = _obtener_indice_biblioteca()
     candidatos = [
         item for item in indice["items"]
-        if item["es_nombre_corto"] and item["que_es"] and not _es_texto_generico(item["que_es"])
+        if item["es_nombre_corto"] and item["que_es"] and not _es_texto_generico_o_con_respuesta(item["que_es"])
     ]
-    por_categoria = {}
+    por_unidad = {}
     for item in candidatos:
-        por_categoria.setdefault(item["cat_norm"], []).append(item)
+        por_unidad.setdefault(item["unidad_norm"], []).append(item)
 
-    categorias_validas = [cat for cat, lista in por_categoria.items() if len(lista) >= 4]
-    if categorias_validas:
-        cat_elegida = random.choice(categorias_validas)
-        pool = por_categoria[cat_elegida][:]
+    unidades_validas = [u for u, lista in por_unidad.items() if len(lista) >= 4]
+    if unidades_validas:
+        unidad_elegida = random.choice(unidades_validas)
+        pool = por_unidad[unidad_elegida][:]
         random.shuffle(pool)
         seleccion = pool[:4]
     else:
@@ -449,7 +474,7 @@ def api_victoria_memoria(request):
 
 
 # ==========================================
-# SIMULADOR / CUESTIONARIO (OPTIMIZADO)
+# SIMULADOR / CUESTIONARIO (SOLO TEÓRICO)
 # ==========================================
 @login_required
 def obtener_cuestionario_api(request):
@@ -466,36 +491,36 @@ def obtener_cuestionario_api(request):
             continue
 
         nombre_seccion = p.seccion if p.seccion else "General"
-        cat_norm = _normalizar_clave(nombre_seccion)
-        es_modulo_sindrome = "sindrome" in cat_norm
+        unidad_norm = _normalizar_unidad(nombre_seccion)
+        es_modulo_sindrome = "sindrome" in unidad_norm
         opciones_db = list(p.opciones.all())
         opcion_correcta = next((op for op in opciones_db if op.es_correcta), None)
         if not opcion_correcta:
             continue
 
-        clave_correcta = _normalizar_clave(opcion_correcta.texto)
+        texto_correcto_limpio = _quitar_prefijo_opcion(opcion_correcta.texto)
+        clave_correcta = _normalizar_clave(texto_correcto_limpio)
         definicion_concepto = mapa_definiciones.get(clave_correcta, "")
 
+        # Construir consigna únicamente desde p.texto válido o la definición clínica (NUNCA desde p.explicacion)
         texto_pregunta = (p.texto or "").strip()
-        if _es_texto_generico(texto_pregunta):
+        if _es_texto_generico_o_con_respuesta(texto_pregunta):
             if definicion_concepto:
                 texto_pregunta = f"¿A qué alteración psicopatológica corresponde la siguiente definición: «{definicion_concepto.rstrip('.')}»?"
-            elif p.explicacion and not _es_texto_generico(p.explicacion):
-                texto_pregunta = f"¿A qué alteración psicopatológica corresponde la siguiente descripción: «{p.explicacion.strip().rstrip('.')}»?"
             else:
                 continue
 
-        # Distractores estrictos de la misma unidad clínica (mínimo 2 distractores + 1 correcta = 3 opciones)
-        distractores = _obtener_distractores_misma_categoria(
+        # Distractores estrictos de la misma unidad clínica (mínimo 3 opciones en total)
+        distractores = _obtener_distractores_misma_unidad(
             nombre_seccion,
-            [opcion_correcta.texto],
+            [texto_correcto_limpio],
             cantidad=3,
             permitir_sindromes=es_modulo_sindrome,
             indice=indice,
         )
 
         if len(distractores) >= 2:
-            opciones_data = [{"texto": opcion_correcta.texto, "es_correcta": True}] + [
+            opciones_limpias = [{"texto": texto_correcto_limpio, "es_correcta": True}] + [
                 {"texto": d, "es_correcta": False} for d in distractores
             ]
         else:
@@ -503,21 +528,33 @@ def obtener_cuestionario_api(request):
                 op for op in opciones_db
                 if op.es_correcta
                 or (
-                    not _es_termino_excluido_en_categoria(cat_norm, op.texto)
+                    not _es_termino_excluido_en_unidad(unidad_norm, op.texto)
                     and (es_modulo_sindrome or "sindrome" not in _normalizar_clave(op.texto))
                 )
             ]
-            # Garantizar que nunca queden menos de 3 opciones
             if len(opciones_validas) < 3:
                 opciones_validas = opciones_db
-            opciones_data = [{"texto": op.texto, "es_correcta": op.es_correcta} for op in opciones_validas]
+            opciones_limpias = [
+                {"texto": _quitar_prefijo_opcion(op.texto), "es_correcta": op.es_correcta}
+                for op in opciones_validas
+            ]
 
-        random.shuffle(opciones_data)
-        texto_pregunta = _ocultar_nombre_en_texto(texto_pregunta, opcion_correcta.texto)
+        random.shuffle(opciones_limpias)
+
+        # Asignar literales A, B, C, D en orden secuencial tras mezclar
+        letras = ["A", "B", "C", "D"]
+        opciones_data = []
+        for idx, op in enumerate(opciones_limpias[:4]):
+            opciones_data.append({
+                "texto": f"{letras[idx]}) {op['texto']}",
+                "es_correcta": op["es_correcta"],
+            })
+
+        texto_pregunta = _ocultar_nombre_en_texto(texto_pregunta, texto_correcto_limpio)
 
         explicacion_limpia = (p.explicacion or "").strip()
-        if _es_texto_generico(explicacion_limpia):
-            explicacion_limpia = definicion_concepto or f"Respuesta correcta: {opcion_correcta.texto}."
+        if _es_texto_generico_o_con_respuesta(explicacion_limpia):
+            explicacion_limpia = definicion_concepto or f"Corresponde a {texto_correcto_limpio}."
 
         pregunta_data = {
             "texto": texto_pregunta,
@@ -565,16 +602,16 @@ def api_flashcards(request):
     indice = _obtener_indice_biblioteca()
     candidatos = [
         item for item in indice["items"]
-        if item["es_nombre_corto"] and item["que_es"] and not _es_texto_generico(item["que_es"])
+        if item["es_nombre_corto"] and item["que_es"] and not _es_texto_generico_o_con_respuesta(item["que_es"])
     ]
-    por_categoria = {}
+    por_unidad = {}
     for item in candidatos:
-        por_categoria.setdefault(item["cat_norm"], []).append(item)
+        por_unidad.setdefault(item["unidad_norm"], []).append(item)
 
-    categorias_validas = [cat for cat, lista in por_categoria.items() if len(lista) >= 3]
-    if categorias_validas:
-        cat_elegida = random.choice(categorias_validas)
-        pool = por_categoria[cat_elegida][:]
+    unidades_validas = [u for u, lista in por_unidad.items() if len(lista) >= 3]
+    if unidades_validas:
+        unidad_elegida = random.choice(unidades_validas)
+        pool = por_unidad[unidad_elegida][:]
         random.shuffle(pool)
         seleccion = pool[:10]
     else:
