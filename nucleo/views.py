@@ -22,6 +22,8 @@ DEFINICIONES_RESPALDO = {
     "desorientacion alopsiquica en espacio": "Incapacidad para identificar correctamente el lugar físico, entorno o ubicación geográfica en la que se encuentra.",
     "desorientacion alopsiquica en tiempo": "Pérdida de la noción de la fecha actual, el día de la semana, el mes, el año o el momento del día.",
     "desorientacion autopsiquica o en persona": "Alteración en el reconocimiento de la propia identidad, datos biográficos básicos o rol personal.",
+    "desorientacion global": "Pérdida conjunta de la orientación en tiempo, espacio y respecto a la propia persona.",
+    "doble orientacion": "Coexistencia de una orientación correcta respecto a la realidad con referencias delirantes o erróneas.",
 }
 
 
@@ -105,7 +107,6 @@ def _limpiar_sindrome(s):
     if _es_texto_generico(resumen) or resumen.startswith("¿"):
         resumen = que_es
 
-    # Evitar que una definición larga quede como nombre de opción
     es_nombre_corto = len(nombre) <= 75 and not nombre.startswith("¿")
 
     return {
@@ -133,6 +134,14 @@ def _obtener_sindromes_limpios():
         vistos.add(clave)
         limpios.append(item)
     return limpios
+
+
+def _mapa_definiciones_clinicas():
+    mapa = dict(DEFINICIONES_RESPALDO)
+    for item in _obtener_sindromes_limpios():
+        if item["que_es"] and not _es_texto_generico(item["que_es"]):
+            mapa[_normalizar_clave(item["nombre"])] = item["que_es"]
+    return mapa
 
 
 def _obtener_distractores_misma_categoria(categoria, excluir_nombres, cantidad=3, permitir_sindromes=True):
@@ -234,11 +243,7 @@ def vista_expedientes(request):
 
 @login_required
 def obtener_expedientes_api(request):
-    mapa_definiciones = {
-        _normalizar_clave(item["nombre"]): item["que_es"]
-        for item in _obtener_sindromes_limpios()
-        if item["que_es"]
-    }
+    mapa_definiciones = _mapa_definiciones_clinicas()
 
     modulos = ModuloExpediente.objects.all()
     data = []
@@ -251,7 +256,10 @@ def obtener_expedientes_api(request):
             # Reemplazar texto genérico repetido por el concepto clínico real
             if _es_texto_generico(desc):
                 clave_resp = _normalizar_clave(caso.respuesta_correcta)
-                desc = mapa_definiciones.get(clave_resp) or DEFINICIONES_RESPALDO.get(clave_resp) or desc
+                desc = mapa_definiciones.get(clave_resp, "")
+
+            if _es_texto_generico(desc):
+                continue
 
             desc_segura = _ocultar_nombre_en_texto(desc, caso.respuesta_correcta)
             distractores = _obtener_distractores_misma_categoria(
@@ -294,7 +302,6 @@ def api_reto_minijuego(request):
     if len(candidatos) < 4:
         return JsonResponse({'error': 'No hay suficientes datos válidos en la biblioteca.'})
     
-    # Elegir solo conceptos de categorías que tengan al menos 3 conceptos válidos
     por_cat = {}
     for item in candidatos:
         por_cat.setdefault(item["cat_norm"], []).append(item)
@@ -408,8 +415,7 @@ def obtener_cuestionario_api(request):
     if not cuestionario:
         return JsonResponse({"error": "No hay cuestionarios disponibles."})
 
-    sindromes_limpios = _obtener_sindromes_limpios()
-    nombres_biblioteca = {_normalizar_clave(item["nombre"]) for item in sindromes_limpios}
+    mapa_definiciones = _mapa_definiciones_clinicas()
     secciones_agrupadas = {}
 
     for p in cuestionario.preguntas.all():
@@ -421,21 +427,37 @@ def obtener_cuestionario_api(request):
         es_modulo_sindrome = "sindrome" in _normalizar_clave(nombre_seccion)
         opciones_db = list(p.opciones.all())
         opcion_correcta = next((op for op in opciones_db if op.es_correcta), None)
+        if not opcion_correcta:
+            continue
 
-        if opcion_correcta and _normalizar_clave(opcion_correcta.texto) in nombres_biblioteca:
-            distractores = _obtener_distractores_misma_categoria(
-                nombre_seccion,
-                [opcion_correcta.texto],
-                cantidad=3,
-                permitir_sindromes=es_modulo_sindrome,
-            )
+        clave_correcta = _normalizar_clave(opcion_correcta.texto)
+        definicion_concepto = mapa_definiciones.get(clave_correcta, "")
+
+        # Garantizar que TODAS las preguntas tengan una consigna clínica real (nunca el texto genérico)
+        texto_pregunta = (p.texto or "").strip()
+        if _es_texto_generico(texto_pregunta):
+            if definicion_concepto:
+                texto_pregunta = f"¿A qué alteración psicopatológica corresponde la siguiente definición: «{definicion_concepto.rstrip('.')}»?"
+            elif p.explicacion and not _es_texto_generico(p.explicacion):
+                texto_pregunta = f"¿A qué alteración psicopatológica corresponde la siguiente descripción: «{p.explicacion.strip().rstrip('.')}»?"
+            else:
+                continue
+
+        # Distractores estrictos de la misma unidad clínica (sin mezclar términos de otras unidades)
+        distractores = _obtener_distractores_misma_categoria(
+            nombre_seccion,
+            [opcion_correcta.texto],
+            cantidad=3,
+            permitir_sindromes=es_modulo_sindrome,
+        )
+
+        if len(distractores) >= 2:
             opciones_data = [{"texto": opcion_correcta.texto, "es_correcta": True}] + [
                 {"texto": d, "es_correcta": False} for d in distractores
             ]
         else:
             opciones_data = []
             for op in opciones_db:
-                # En módulos de síntomas/procesos, quitar distractores que digan "Síndrome..."
                 if (
                     not op.es_correcta
                     and not es_modulo_sindrome
@@ -445,14 +467,15 @@ def obtener_cuestionario_api(request):
                 opciones_data.append({"texto": op.texto, "es_correcta": op.es_correcta})
 
         random.shuffle(opciones_data)
+        texto_pregunta = _ocultar_nombre_en_texto(texto_pregunta, opcion_correcta.texto)
 
-        texto_pregunta = p.texto
-        if opcion_correcta:
-            texto_pregunta = _ocultar_nombre_en_texto(texto_pregunta, opcion_correcta.texto)
+        explicacion_limpia = (p.explicacion or "").strip()
+        if _es_texto_generico(explicacion_limpia):
+            explicacion_limpia = definicion_concepto or f"Respuesta correcta: {opcion_correcta.texto}."
 
         pregunta_data = {
             "texto": texto_pregunta,
-            "explicacion": p.explicacion,
+            "explicacion": explicacion_limpia,
             "opciones": opciones_data,
         }
         secciones_agrupadas.setdefault(nombre_seccion, []).append(pregunta_data)
@@ -501,7 +524,6 @@ def api_flashcards(request):
     for item in candidatos:
         por_categoria.setdefault(item["cat_norm"], []).append(item)
 
-    # Seleccionar una sola unidad con al menos 4 conceptos para que los distractores pertenezcan al mismo proceso
     categorias_validas = [cat for cat, lista in por_categoria.items() if len(lista) >= 4]
     if categorias_validas:
         cat_elegida = random.choice(categorias_validas)
